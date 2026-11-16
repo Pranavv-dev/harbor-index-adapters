@@ -25,6 +25,9 @@ RUN npm install --prefix /opt/workspace-bench/office-runtime --omit=dev
 
 # Upstream evaluation code at a pinned commit: the output collector and the
 # agent-as-a-judge used by the verifier, with its Claude Agent SDK.
+# judge-copy-view.patch: the judge view copies inputs/outputs instead of
+# symlinking them (the same patch is applied on the original side for parity).
+COPY judge-copy-view.patch /tmp/judge-copy-view.patch
 ARG WSB_COMMIT=3fbd0f1a136720fece86786545983e26642c3db2
 RUN git init -q /opt/wsb \
     && git -C /opt/wsb remote add origin https://github.com/OpenDataBox/Workspace-Bench.git \
@@ -32,6 +35,7 @@ RUN git init -q /opt/wsb \
        evaluation/package.json evaluation/package-lock.json \
     && git -C /opt/wsb fetch -q --depth 1 origin "$WSB_COMMIT" \
     && git -C /opt/wsb checkout -q FETCH_HEAD \
+    && git -C /opt/wsb apply /tmp/judge-copy-view.patch \
     && npm ci --prefix /opt/wsb/evaluation --omit=dev \
     && rm -rf /opt/wsb/.git
 

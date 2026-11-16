@@ -8,7 +8,9 @@ Steps, each one upstream's own code (Workspace-Bench @ 3fbd0f1 in /opt/wsb):
    converted to upstream's executionTrace shape. Other agents get no trace,
    which upstream's judge accepts.
 3. Judge: agent_as_a_judge.py, a Claude Code session that reads the task
-   inputs, the outputs and the trace, and scores each rubric. Reward is
+   inputs, the outputs and the trace, and scores each rubric.
+   environment/judge-copy-view.patch makes its judge view copy inputs and
+   outputs instead of symlinking them (Glob does not follow symlinked dirs). Reward is
    passed / total. If every judge attempt fails, upstream would count all
    rubrics as failed (reward 0). Here that is a verifier error instead: no
    reward is written and the script exits non-zero, so Harbor records the
