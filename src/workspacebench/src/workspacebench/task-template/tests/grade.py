@@ -9,8 +9,10 @@ Steps, each one upstream's own code (Workspace-Bench @ 3fbd0f1 in /opt/wsb):
    which upstream's judge accepts.
 3. Judge: agent_as_a_judge.py, a Claude Code session that reads the task
    inputs, the outputs and the trace, and scores each rubric. Reward is
-   passed / total. If every judge attempt fails, upstream counts all rubrics as
-   failed, so the reward is 0.
+   passed / total. If every judge attempt fails, upstream would count all
+   rubrics as failed (reward 0). Here that is a verifier error instead: no
+   reward is written and the script exits non-zero, so Harbor records the
+   trial as errored rather than as a real 0.
 """
 
 from __future__ import annotations
@@ -126,7 +128,7 @@ def main() -> int:
         'apiKey: "${ANTHROPIC_API_KEY}"\n'
     )
     env = dict(os.environ, WORKSPACE_BENCH_CLAUDE_CONFIG_DIR="/opt/wsb/judge-claude")
-    retries = os.environ.get("JUDGE_MAX_RETRIES", "6")
+    retries = os.environ.get("JUDGE_MAX_RETRIES", "3")
     proc = subprocess.run(
         [sys.executable, "-u", str(EVAL / "src" / "agent_as_a_judge.py"), "--task-dir", str(CASE),
          "--eval-yaml", str(CASE / "judge.yaml"), "--max-retries", retries, "--overwrite"],
@@ -146,6 +148,11 @@ def main() -> int:
     total = int(s.get("total") or 0)
     if total == 0:
         print("judge result has no rubrics", file=sys.stderr)
+        return 1
+    # Upstream fills every rubric with this evidence when no attempt produced a verdict.
+    rows = result.get("rubrics") or []
+    if all(str(r.get("evidence") or "").startswith("ClaudeCode judge failed") for r in rows):
+        print(f"judge failed every attempt: {(result.get('judge') or {}).get('error')}", file=sys.stderr)
         return 1
     reward = int(s.get("passed") or 0) / total
     write_reward(reward, {
