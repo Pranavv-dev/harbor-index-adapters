@@ -1,0 +1,35 @@
+schema_version = "1.0"
+# Keep the graded outputs with the trial results.
+artifacts = ["/app/model_output"]
+
+[task]
+name = "workspacebench/{task_name}"
+authors = [
+    { name = "Workspace-Bench authors (OpenDataBox)" },
+]
+keywords = ["workspacebench", "{language}", "{persona}", "workspace", "office-files", "llm-judge"]
+
+[metadata]
+difficulty = "{difficulty}"
+category = "workspace-tasks"
+
+[verifier]
+# Upstream's judge: one Claude Code session per task, 600 s per attempt, up to
+# 6 attempts.
+timeout_sec = 3900.0
+
+[verifier.env]
+ANTHROPIC_API_KEY = "${ANTHROPIC_API_KEY}"
+ANTHROPIC_BASE_URL = "${ANTHROPIC_BASE_URL:-https://api.anthropic.com}"
+JUDGE_MODEL = "${JUDGE_MODEL:-claude-sonnet-5-5}"
+JUDGE_MAX_RETRIES = "${JUDGE_MAX_RETRIES:-6}"
+
+[agent]
+# Upstream's per-task agent timeout.
+timeout_sec = 2000.0
+
+[environment]
+build_timeout_sec = 7200.0
+cpus = 2
+memory_mb = 8192
+storage_mb = {storage_mb}

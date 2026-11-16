@@ -1,0 +1,224 @@
+"""Generate Harbor tasks from Workspace-Bench (388 workspace tasks, en and cn).
+
+Each task runs inside one of five persona workspaces (up to 19 GB). The
+workspace is fetched from Hugging Face when the image is built, so the
+generated task directories stay small. Grading uses upstream's own
+agent-as-a-judge (a Claude Code session over the task inputs, the agent's
+outputs and its trace), cloned at a pinned commit inside the image.
+"""
+
+from __future__ import annotations
+
+import json
+import logging
+import shutil
+from dataclasses import dataclass
+from pathlib import Path
+
+from huggingface_hub import snapshot_download
+
+from .prompt import wrap_prompt
+
+logger = logging.getLogger(__name__)
+
+TEMPLATE_DIR = Path(__file__).parent / "task-template"
+
+TASKS_REPO = "Workspace-Bench/Workspace-Bench"
+TASKS_REVISION = "3491f9eb611eaf3bd6753048d94e0e049c07ad30"
+TASK_DIRS = {"en": "task_clean_en", "cn": "task_clean_cn"}
+
+# Persona (metadata "persona") -> folder inside filesys_<lang>.zip.
+PERSONA_DIRS = {
+    "Product Manager": "ProductManager_Workdir",
+    "Operations Manager": "OperationsManager_Workdir",
+    "Logistics Manager": "LogisticsManager_Workdir",
+    "Backend Developer": "BackendDeveloper_Workdir",
+    "Researcher": "Research_Workdir",
+}
+
+# Disk each persona workspace needs inside the sandbox (unzipped size plus room
+# for outputs and the office tooling).
+PERSONA_STORAGE_MB = {
+    "Research_Workdir": 40960,
+    "BackendDeveloper_Workdir": 16384,
+    "LogisticsManager_Workdir": 12288,
+    "OperationsManager_Workdir": 12288,
+    "ProductManager_Workdir": 12288,
+}
+
+# Upstream's Workspace-Bench-Lite: a 100-task subset chosen by the benchmark
+# authors (same ids in en and cn). The task metadata is identical to the full
+# set apart from data file names. Used as the parity split.
+LITE_IDS = frozenset(
+    int(x)
+    for x in """
+    3 7 13 15 23 33 35 37 38 44 45 47 53 54 55 72 75 78 79 83 85 87 91 92 94
+    95 100 102 107 108 115 116 120 124 127 128 129 131 137 139 143 146 152 154
+    158 159 160 161 171 175 178 191 192 207 224 226 227 232 242 244 251 255 258
+    266 267 269 274 276 277 278 281 284 286 287 288 289 291 300 306 311 314 328
+    329 334 337 340 346 354 357 358 359 360 363 372 373 374 380 381 386 388
+    """.split()
+)
+
+# Tasks left out of the generated dataset, with the reason. Filled in as
+# oracle building finds tasks that cannot be solved as written.
+EXCLUDED_TASKS: dict[str, str] = {}
+
+WORK_DIR = "/app"
+OUTPUT_DIR = "model_output"
+
+
+@dataclass
+class WorkspaceTask:
+    task_id: int
+    language: str
+    meta: dict
+    source_dir: Path
+
+    @property
+    def name(self) -> str:
+        return f"{self.language}-{self.task_id:03d}"
+
+    @property
+    def persona_dir(self) -> str:
+        return PERSONA_DIRS[self.meta["persona"]]
+
+
+class WorkspaceBenchAdapter:
+    def __init__(
+        self,
+        output_dir: Path,
+        languages: list[str] | None = None,
+        split: str = "full",
+        limit: int | None = None,
+        overwrite: bool = False,
+        task_ids: list[str] | None = None,
+        oracle_dir: Path | None = None,
+        tasks_root: Path | None = None,
+        **kwargs,
+    ):
+        self.output_dir = Path(output_dir)
+        self.languages = languages or ["en", "cn"]
+        self.split = split
+        self.limit = limit
+        self.overwrite = overwrite
+        self.task_ids = set(task_ids) if task_ids else None
+        self.oracle_dir = Path(oracle_dir) if oracle_dir else None
+        self.tasks_root = Path(tasks_root) if tasks_root else None
+
+    def _tasks_dir(self, language: str) -> Path:
+        """Local folder holding <id>/metadata.json and <id>/data/ for one language."""
+        if self.tasks_root is not None:
+            return self.tasks_root / TASK_DIRS[language]
+        root = snapshot_download(
+            repo_id=TASKS_REPO,
+            repo_type="dataset",
+            revision=TASKS_REVISION,
+            allow_patterns=[f"{TASK_DIRS[language]}/**"],
+        )
+        return Path(root) / TASK_DIRS[language]
+
+    def load_tasks(self) -> list[WorkspaceTask]:
+        tasks = []
+        for language in self.languages:
+            tasks_dir = self._tasks_dir(language)
+            found = sorted(
+                (p for p in tasks_dir.iterdir() if p.is_dir() and p.name.isdigit()),
+                key=lambda p: int(p.name),
+            )
+            if len(found) != 388:
+                raise RuntimeError(f"Expected 388 {language} tasks in {tasks_dir}, found {len(found)}")
+            for d in found:
+                meta = json.loads((d / "metadata.json").read_text())
+                tasks.append(WorkspaceTask(int(d.name), language, meta, d))
+        return tasks
+
+    def _selected(self, tasks: list[WorkspaceTask]) -> list[WorkspaceTask]:
+        out = []
+        for t in tasks:
+            if t.name in EXCLUDED_TASKS:
+                continue
+            if self.split == "parity" and t.task_id not in LITE_IDS:
+                continue
+            if self.task_ids is not None and t.name not in self.task_ids:
+                continue
+            out.append(t)
+        if self.split == "parity":
+            # Parity runs on English Lite only.
+            out = [t for t in out if t.language == "en"]
+        if self.limit is not None:
+            out = out[: self.limit]
+        return out
+
+    @staticmethod
+    def _render(path: Path, **values: str) -> None:
+        text = path.read_text()
+        for key, value in values.items():
+            text = text.replace("{" + key + "}", value)
+        path.write_text(text)
+
+    def _oracle_files(self, task: WorkspaceTask) -> Path | None:
+        """`<oracle_dir>/<name>/` holds the reference output files for a task."""
+        if self.oracle_dir is None:
+            return None
+        d = self.oracle_dir / task.name
+        return d if d.is_dir() and any(d.iterdir()) else None
+
+    def generate_task(self, task: WorkspaceTask) -> None:
+        task_dir = self.output_dir / task.name
+        if task_dir.exists():
+            if not self.overwrite:
+                logger.info("Skipping %s (exists; use --overwrite)", task.name)
+                return
+            shutil.rmtree(task_dir)
+        shutil.copytree(TEMPLATE_DIR, task_dir)
+
+        prompt = wrap_prompt(
+            prompt=str(task.meta["task"]),
+            work_dir=WORK_DIR,
+            task_target_output_dir=OUTPUT_DIR,
+            language=task.language,
+        )
+        (task_dir / "instruction.md").write_text(prompt)
+        # The verifier puts the prompt at the start of the trace, as upstream does.
+        (task_dir / "tests" / "instruction.md").write_text(prompt)
+
+        self._render(
+            task_dir / "environment" / "Dockerfile",
+            language=task.language,
+            persona_dir=task.persona_dir,
+        )
+        self._render(
+            task_dir / "task.toml",
+            task_name=task.name,
+            language=task.language,
+            persona=task.persona_dir.removesuffix("_Workdir").lower(),
+            difficulty=str(task.meta.get("task_diff") or "medium"),
+            storage_mb=str(PERSONA_STORAGE_MB[task.persona_dir]),
+        )
+
+        # Upstream's judge reads <metadata dir>/data as the task inputs.
+        judge_task = task_dir / "tests" / "task"
+        judge_task.mkdir(parents=True)
+        (judge_task / "metadata.json").write_text(
+            json.dumps(task.meta, ensure_ascii=False, indent=2) + "\n"
+        )
+        shutil.copytree(task.source_dir / "data", judge_task / "data")
+
+        oracle = self._oracle_files(task)
+        out = task_dir / "solution" / "output"
+        if oracle is None:
+            logger.warning("No oracle output for %s; solve.sh will fail", task.name)
+            out.mkdir(parents=True)
+        else:
+            shutil.copytree(oracle, out)
+
+        for script in ("solution/solve.sh", "tests/test.sh"):
+            (task_dir / script).chmod(0o755)
+
+    def run(self) -> None:
+        selected = self._selected(self.load_tasks())
+        self.output_dir.mkdir(parents=True, exist_ok=True)
+        for task in selected:
+            self.generate_task(task)
+        logger.info("Wrote %d tasks to %s", len(selected), self.output_dir)
