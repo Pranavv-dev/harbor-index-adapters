@@ -17,7 +17,7 @@ def main() -> None:
         "--split",
         choices=["full", "parity"],
         default="full",
-        help="full: all 388 tasks per language. parity: the 100 English Workspace-Bench-Lite tasks",
+        help="full: all 388 tasks per language. parity: the 50-task English parity subset of Workspace-Bench-Lite",
     )
     parser.add_argument(
         "--languages",

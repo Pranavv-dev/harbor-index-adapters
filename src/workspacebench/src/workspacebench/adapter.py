@@ -48,7 +48,7 @@ PERSONA_STORAGE_MB = {
 
 # Upstream's Workspace-Bench-Lite: a 100-task subset chosen by the benchmark
 # authors (same ids in en and cn). The task metadata is identical to the full
-# set apart from data file names. Used as the parity split.
+# set apart from data file names. The parity subset is drawn from it.
 LITE_IDS = frozenset(
     int(x)
     for x in """
@@ -59,6 +59,20 @@ LITE_IDS = frozenset(
     329 334 337 340 346 354 357 358 359 360 363 372 373 374 380 381 386 388
     """.split()
 )
+
+# Parity subset (50 English tasks), fixed before any agent run. Lite en minus
+# the 17 Researcher tasks (19 GB workspace) and the 5 tasks whose rubrics
+# contradict each other (en-007 131 137 152 358), then a sample stratified by
+# persona x difficulty with random.Random(20261117).
+PARITY_IDS = frozenset(
+    int(x)
+    for x in """
+    3 15 33 37 38 44 54 55 72 83 85 91 94 107 108 139 143 154 160 171 175 191
+    192 224 251 255 258 267 269 274 276 277 284 286 291 300 306 311 314 328 329
+    334 337 354 359 373 374 380 381 388
+    """.split()
+)
+assert PARITY_IDS <= LITE_IDS and len(PARITY_IDS) == 50
 
 # Tasks left out of the generated dataset, with the reason. Filled in as
 # oracle building finds tasks that cannot be solved as written.
@@ -138,7 +152,7 @@ class WorkspaceBenchAdapter:
         for t in tasks:
             if t.name in EXCLUDED_TASKS:
                 continue
-            if self.split == "parity" and t.task_id not in LITE_IDS:
+            if self.split == "parity" and t.task_id not in PARITY_IDS:
                 continue
             if self.task_ids is not None and t.name not in self.task_ids:
                 continue

@@ -44,12 +44,13 @@ def test_full_split_generates_both_languages(repo, tmp_path):
     assert names[0] == "cn-001" and "en-388" in names
 
 
-def test_parity_split_is_english_lite(repo, tmp_path):
+def test_parity_split_is_english_subset(repo, tmp_path):
     out = tmp_path / "out"
     ad.WorkspaceBenchAdapter(out, tasks_root=repo, split="parity").run()
     names = {p.name for p in out.iterdir()}
-    assert len(names) == 100 == len(ad.LITE_IDS)
-    assert names == {f"en-{i:03d}" for i in ad.LITE_IDS}
+    assert len(names) == 50 == len(ad.PARITY_IDS)
+    assert names == {f"en-{i:03d}" for i in ad.PARITY_IDS}
+    assert ad.PARITY_IDS <= ad.LITE_IDS
 
 
 def test_task_contents(repo, tmp_path):

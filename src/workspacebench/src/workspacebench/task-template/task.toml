@@ -15,7 +15,7 @@ category = "workspace-tasks"
 
 [verifier]
 # Upstream's judge: one Claude Code session per task, 600 s per attempt, up to
-# 6 attempts.
+# JUDGE_MAX_RETRIES attempts (default 3).
 timeout_sec = 3900.0
 
 [verifier.env]
