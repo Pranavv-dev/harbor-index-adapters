@@ -1,10 +1,13 @@
 """Collect the agent's outputs and grade them with upstream's agent-as-a-judge.
 
 Steps, each one upstream's own code (Workspace-Bench @ 3fbd0f1 in /opt/wsb):
-1. Outputs: agent_runner's collector. Files written outside model_output are
-   mirrored into it, then the expected names, the agent's final path list and
-   model_output decide which files are graded.
-2. Trace: Claude Code's stream-json log (/logs/agent/claude-code.txt) is
+1. Outputs: collected in the agent container by the collect hook
+   (environment/collect_outputs.py, agent_runner's collector: files written
+   outside model_output are mirrored into it, then the expected names, the
+   agent's final path list and model_output decide which files are graded).
+   They arrive here as the /logs/wsb_collected artifact; this verifier runs in
+   a separate container, so the agent never touches the judge.
+2. Trace: Claude Code's stream-json log (collected as claude-code.txt) is
    converted to upstream's executionTrace shape. Other agents get no trace,
    which upstream's judge accepts.
 3. Judge: agent_as_a_judge.py, a Claude Code session that reads the task
@@ -28,13 +31,11 @@ import sys
 from pathlib import Path
 
 EVAL = Path("/opt/wsb/evaluation")
-sys.path.insert(0, str(EVAL / "src"))
-import agent_runner as ar  # noqa: E402  (upstream)
 
 WORK_DIR = "/app"
 OUTPUT_DIR = "model_output"
 TASK = Path("/tests/task")
-AGENT_LOG = Path("/logs/agent/claude-code.txt")
+COLLECTED = Path("/logs/wsb_collected")
 VERIFIER = Path("/logs/verifier")
 CASE = Path("/tmp/wsb-case")
 
@@ -93,28 +94,26 @@ def main() -> int:
     meta = json.loads(meta_path.read_text())
     meta["__metadata_path"] = str(meta_path)
 
-    snap = json.loads(Path("/opt/wsb/before.json").read_text())
-    before = {k: (int(v[0]), float(v[1])) for k, v in snap["files"].items()}
-    min_mtime = float(snap["created"])
-
-    stream = AGENT_LOG.read_text(errors="replace") if AGENT_LOG.exists() else ""
+    # Outputs were collected in the agent container by the collect hook
+    # (environment/collect_outputs.py, upstream's collector) and arrive here as
+    # the /logs/wsb_collected artifact. The judge runs in this separate container.
+    collect_file = COLLECTED / "collect.json"
+    if not collect_file.exists():
+        print("no collected outputs (/logs/wsb_collected/collect.json missing)", file=sys.stderr)
+        return 1
+    collected = json.loads(collect_file.read_text())
+    manifest, method = collected.get("outputs") or [], collected.get("retrievalMethod")
+    log = COLLECTED / "claude-code.txt"
+    stream = log.read_text(errors="replace") if log.exists() else ""
     prompt = Path("/tests/instruction.md").read_text() if Path("/tests/instruction.md").exists() else ""
 
     if CASE.exists():
         shutil.rmtree(CASE)
-    (CASE / "raw").mkdir(parents=True)
-    (Path(WORK_DIR) / OUTPUT_DIR).mkdir(exist_ok=True)
-
-    expected = ar._expected_output_files(meta)
-    ar._copy_misplaced_outputs_to_target(
-        work_dir=WORK_DIR, task_target_output_dir=OUTPUT_DIR, before=before,
-        min_mtime=min_mtime, raw_dir=str(CASE / "raw"), expected_files=expected,
-    )
-    paths, method = ar._collect_output_paths(
-        task_target_output_dir=OUTPUT_DIR, work_dir=WORK_DIR, expected_files=expected,
-        returned_paths=[], last_text=final_text(stream), min_mtime=min_mtime,
-    )
-    manifest = ar._copy_outputs(output_paths=paths, out_dir=str(CASE / "output"), preserve_root=f"{WORK_DIR}/{OUTPUT_DIR}")
+    CASE.mkdir(parents=True)
+    if (COLLECTED / "output").exists():
+        shutil.copytree(COLLECTED / "output", CASE / "output")
+    else:
+        (CASE / "output").mkdir()
 
     (CASE / "metadata.json").write_text(json.dumps(meta, ensure_ascii=False, indent=2))
     agent = {"caseId": str(meta.get("id")), "workDir": WORK_DIR, "outputs": manifest, "retrievalMethod": method}

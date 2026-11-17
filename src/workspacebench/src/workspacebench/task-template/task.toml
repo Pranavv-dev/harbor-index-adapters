@@ -1,6 +1,8 @@
 schema_version = "1.0"
-# Keep the graded outputs with the trial results.
-artifacts = ["/app/model_output"]
+# /app/model_output: the outputs, kept with the trial results.
+# /logs/wsb_collected: what the collect hook gathered (graded outputs, manifest,
+# agent log); the separate verifier container receives only these artifacts.
+artifacts = ["/app/model_output", "/logs/wsb_collected"]
 
 [task]
 name = "workspacebench/{task_name}"
@@ -17,6 +19,16 @@ category = "workspace-tasks"
 # Upstream's judge: one Claude Code session per task, 600 s per attempt, up to
 # JUDGE_MAX_RETRIES attempts (default 3).
 timeout_sec = 3900.0
+# The judge runs in a fresh container from the same image, which receives only
+# the artifacts above, so the agent cannot change the judge, its code or the reward.
+environment_mode = "separate"
+
+# Runs in the agent container after the agent phase: upstream's output
+# collector (environment/collect_outputs.py). The expected output names are
+# passed here, not stored in the image, so the agent never sees them.
+[[verifier.collect]]
+command = "python3 /opt/wsb/collect_outputs.py --meta-b64 {collect_meta_b64}"
+timeout_sec = 900.0
 
 [verifier.env]
 ANTHROPIC_API_KEY = "${ANTHROPIC_API_KEY}"

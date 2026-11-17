@@ -45,6 +45,9 @@ RUN mkdir -p /root/.claude/skills /opt/wsb/judge-claude/skills \
     && cp -r /opt/wsb/evaluation/skills/office/. /root/.claude/skills/ \
     && cp -r /opt/wsb/evaluation/skills/office/. /opt/wsb/judge-claude/skills/
 
+# Upstream's output collector, run by the task's [[verifier.collect]] hook.
+COPY collect_outputs.py /opt/wsb/collect_outputs.py
+
 # The persona workspace, unpacked into /app from the pinned Hugging Face zip.
 COPY fetch_workspace.py /opt/wsb/fetch_workspace.py
 RUN python3 /opt/wsb/fetch_workspace.py --language {language} --persona {persona_dir} --dest /app \

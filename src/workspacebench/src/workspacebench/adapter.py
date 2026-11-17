@@ -9,6 +9,7 @@ outputs and its trace), cloned at a pinned commit inside the image.
 
 from __future__ import annotations
 
+import base64
 import json
 import logging
 import shutil
@@ -163,6 +164,12 @@ class WorkspaceBenchAdapter:
             text = text.replace("{" + key + "}", value)
         path.write_text(text)
 
+    @staticmethod
+    def _collect_meta_b64(task: WorkspaceTask) -> str:
+        """The metadata fields upstream's collector reads to find expected outputs (no rubrics)."""
+        fields = {k: task.meta[k] for k in ("output_files", "output_file", "output_manifests") if k in task.meta}
+        return base64.b64encode(json.dumps(fields, ensure_ascii=False).encode("utf-8")).decode("ascii")
+
     def _oracle_files(self, task: WorkspaceTask) -> Path | None:
         """`<oracle_dir>/<name>/` holds the reference output files for a task."""
         if self.oracle_dir is None:
@@ -201,6 +208,7 @@ class WorkspaceBenchAdapter:
             persona=task.persona_dir.removesuffix("_Workdir").lower(),
             difficulty=str(task.meta.get("task_diff") or "medium"),
             storage_mb=str(PERSONA_STORAGE_MB[task.persona_dir]),
+            collect_meta_b64=self._collect_meta_b64(task),
         )
 
         # Upstream's judge reads <metadata dir>/data as the task inputs.
