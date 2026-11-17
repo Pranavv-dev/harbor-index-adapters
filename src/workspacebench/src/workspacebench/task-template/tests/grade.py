@@ -122,11 +122,17 @@ def main() -> int:
     (CASE / "agent.json").write_text(json.dumps(agent, ensure_ascii=False, indent=2))
 
     model = os.environ.get("JUDGE_MODEL") or "claude-sonnet-5-5"
+    # Auth: an API key if one is set (the default). Otherwise a Claude
+    # subscription token (CLAUDE_CODE_OAUTH_TOKEN) via judge-subscription-auth.patch.
+    if not os.environ.get("ANTHROPIC_API_KEY") and os.environ.get("CLAUDE_CODE_OAUTH_TOKEN"):
+        key_line = 'apiKey: "__SUBSCRIPTION__"\n'
+    else:
+        key_line = 'apiKey: "${ANTHROPIC_API_KEY}"\n'
     (CASE / "judge.yaml").write_text(
         f'model_name: "{model}"\n'
         f'model: "{model}"\n'
         'baseUrl: "${ANTHROPIC_BASE_URL:-https://api.anthropic.com}"\n'
-        'apiKey: "${ANTHROPIC_API_KEY}"\n'
+        + key_line
     )
     env = dict(os.environ, WORKSPACE_BENCH_CLAUDE_CONFIG_DIR="/opt/wsb/judge-claude")
     retries = os.environ.get("JUDGE_MAX_RETRIES", "3")

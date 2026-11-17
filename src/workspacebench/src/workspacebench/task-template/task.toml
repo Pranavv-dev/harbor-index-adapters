@@ -31,7 +31,10 @@ command = "python3 /opt/wsb/collect_outputs.py --meta-b64 {collect_meta_b64}"
 timeout_sec = 900.0
 
 [verifier.env]
-ANTHROPIC_API_KEY = "${ANTHROPIC_API_KEY}"
+# Judge auth: ANTHROPIC_API_KEY (default), or CLAUDE_CODE_OAUTH_TOKEN (a Claude
+# subscription token) when no API key is set.
+ANTHROPIC_API_KEY = "${ANTHROPIC_API_KEY:-}"
+CLAUDE_CODE_OAUTH_TOKEN = "${CLAUDE_CODE_OAUTH_TOKEN:-}"
 ANTHROPIC_BASE_URL = "${ANTHROPIC_BASE_URL:-https://api.anthropic.com}"
 JUDGE_MODEL = "${JUDGE_MODEL:-claude-sonnet-5-5}"
 JUDGE_MAX_RETRIES = "${JUDGE_MAX_RETRIES:-3}"
