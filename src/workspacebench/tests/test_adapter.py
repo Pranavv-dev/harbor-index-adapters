@@ -77,6 +77,22 @@ def test_task_contents(repo, tmp_path):
     assert "{" not in (t / "task.toml").read_text().split("[verifier.env]")[0].replace("{ name", "")
 
 
+def test_verifier_is_isolated(repo, tmp_path):
+    """Grading runs in a separate container; the collect hook carries output names only, never rubrics."""
+    import base64
+    out = tmp_path / "out"
+    ad.WorkspaceBenchAdapter(out, tasks_root=repo, task_ids=["en-033"]).run()
+    t = out / "en-033"
+    toml = tomllib.loads((t / "task.toml").read_text())
+    assert toml["verifier"]["environment_mode"] == "separate"
+    assert "/logs/wsb_collected" in toml["artifacts"]
+    (hook,) = toml["verifier"]["collect"]
+    meta = json.loads(base64.b64decode(hook["command"].split("--meta-b64 ")[1]))
+    assert meta == {"output_files": ["out33.md"]}
+    assert "rubrics" not in hook["command"] and "r1" not in json.dumps(meta)
+    assert "COPY collect_outputs.py" in (t / "environment" / "Dockerfile").read_text()
+
+
 def test_prompt_matches_upstream_shape():
     en = wrap_prompt(prompt=" do it ", work_dir="/app", task_target_output_dir="model_output", language="en")
     assert en.startswith("[Important Requirement 1: Working Directory]\n")
