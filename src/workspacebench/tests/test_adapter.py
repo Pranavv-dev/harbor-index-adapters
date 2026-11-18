@@ -91,6 +91,7 @@ def test_verifier_is_isolated(repo, tmp_path):
     assert meta == {"output_files": ["out33.md"]}
     assert "rubrics" not in hook["command"] and "r1" not in json.dumps(meta)
     assert "COPY collect_outputs.py" in (t / "environment" / "Dockerfile").read_text()
+    assert toml["verifier"]["env"]["CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC"] == "1"
 
 
 def test_skills_split_per_tool_like_upstream(repo, tmp_path):

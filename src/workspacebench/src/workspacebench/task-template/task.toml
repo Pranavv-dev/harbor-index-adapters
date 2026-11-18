@@ -38,6 +38,9 @@ CLAUDE_CODE_OAUTH_TOKEN = "${CLAUDE_CODE_OAUTH_TOKEN:-}"
 ANTHROPIC_BASE_URL = "${ANTHROPIC_BASE_URL:-https://api.anthropic.com}"
 JUDGE_MODEL = "${JUDGE_MODEL:-claude-sonnet-5-5}"
 JUDGE_MAX_RETRIES = "${JUDGE_MAX_RETRIES:-3}"
+# No telemetry, error reports or update checks from the judge's Claude Code, as
+# Harbor's claude-code agent already does. Grading calls are unaffected.
+CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC = "1"
 
 [agent]
 # Upstream's per-task agent timeout.
