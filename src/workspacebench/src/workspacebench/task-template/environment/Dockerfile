@@ -43,11 +43,21 @@ RUN git init -q /opt/wsb \
     && npm ci --prefix /opt/wsb/evaluation --omit=dev \
     && rm -rf /opt/wsb/.git
 
-# Upstream's office skill pack: for the agent (Harbor's claude-code agent copies
-# ~/.claude/skills into its config dir) and for the judge's own config dir.
-RUN mkdir -p /root/.claude/skills /opt/wsb/judge-claude/skills \
-    && cp -r /opt/wsb/evaluation/skills/office/. /root/.claude/skills/ \
-    && cp -r /opt/wsb/evaluation/skills/office/. /opt/wsb/judge-claude/skills/
+# Upstream's office skill pack, split per tool exactly as upstream's image does
+# (evaluation/docker/Dockerfile @ 3fbd0f1, the two loops after COPY skills/office):
+# - Claude Code gets docx, pdf, pptx, xlsx: the agent via ~/.claude/skills (Harbor's
+#   claude-code agent copies it into its config dir) and the judge via its own
+#   config dir.
+# - Codex gets docx, pdfs, slides, spreadsheets in ~/.agents/skills, where Harbor's
+#   codex agent registers skills.
+RUN mkdir -p /root/.claude/skills /opt/wsb/judge-claude/skills /root/.agents/skills \
+    && for s in docx pdf pptx xlsx; do \
+         cp -r "/opt/wsb/evaluation/skills/office/$s" /root/.claude/skills/ \
+         && cp -r "/opt/wsb/evaluation/skills/office/$s" /opt/wsb/judge-claude/skills/; \
+       done \
+    && for s in docx pdfs slides spreadsheets; do \
+         cp -r "/opt/wsb/evaluation/skills/office/$s" /root/.agents/skills/; \
+       done
 
 # Upstream's output collector, run by the task's [[verifier.collect]] hook.
 COPY collect_outputs.py /opt/wsb/collect_outputs.py

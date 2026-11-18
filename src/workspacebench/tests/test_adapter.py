@@ -93,6 +93,17 @@ def test_verifier_is_isolated(repo, tmp_path):
     assert "COPY collect_outputs.py" in (t / "environment" / "Dockerfile").read_text()
 
 
+def test_skills_split_per_tool_like_upstream(repo, tmp_path):
+    """Claude gets docx/pdf/pptx/xlsx, Codex gets docx/pdfs/slides/spreadsheets (upstream's image)."""
+    out = tmp_path / "out"
+    ad.WorkspaceBenchAdapter(out, tasks_root=repo, task_ids=["en-033"]).run()
+    df = (out / "en-033" / "environment" / "Dockerfile").read_text()
+    assert "for s in docx pdf pptx xlsx; do" in df
+    assert "for s in docx pdfs slides spreadsheets; do" in df
+    assert "/root/.agents/skills" in df
+    assert "skills/office/. " not in df  # no wholesale copy of all 7
+
+
 def test_prompt_matches_upstream_shape():
     en = wrap_prompt(prompt=" do it ", work_dir="/app", task_target_output_dir="model_output", language="en")
     assert en.startswith("[Important Requirement 1: Working Directory]\n")
