@@ -49,7 +49,7 @@ PERSONA_STORAGE_MB = {
 
 # Upstream's Workspace-Bench-Lite: a 100-task subset chosen by the benchmark
 # authors (same ids in en and cn). The task metadata is identical to the full
-# set apart from data file names. The parity subset is drawn from it.
+# set apart from data file names. The parity subset is drawn from it (see PARITY_IDS).
 LITE_IDS = frozenset(
     int(x)
     for x in """
@@ -61,15 +61,25 @@ LITE_IDS = frozenset(
     """.split()
 )
 
-# Parity split: all 100 Workspace-Bench-Lite tasks in English. Lite is upstream's
-# own representative subset (all five personas, Researcher included), so no
-# sampling rule is involved.
-PARITY_IDS = LITE_IDS
-assert len(PARITY_IDS) == 100
+# Tasks left out of the generated dataset, with the reason: no output built only
+# from the task's inputs can pass every rubric point (a rubric contradicts the
+# inputs or another rubric), so the oracle cannot reach 100%. Each has a written
+# proof; see the README. Source: excluded_tasks.json next to this file.
+EXCLUDED_TASKS: dict[str, str] = {
+    name: f"{e['reason']} (best honest answer: {e['honest_score']})"
+    for name, e in json.loads((Path(__file__).parent / "excluded_tasks.json").read_text(encoding="utf-8")).items()
+}
 
-# Tasks left out of the generated dataset, with the reason. Filled in as
-# oracle building finds tasks that cannot be solved as written.
-EXCLUDED_TASKS: dict[str, str] = {}
+# Parity split: the 100 Workspace-Bench-Lite tasks in English, except that the 8
+# Lite tasks in EXCLUDED_TASKS are replaced. Rule: same persona and difficulty,
+# an English task outside Lite whose oracle was audited as using no rubric-only
+# values, lowest task number first.
+PARITY_REPLACEMENTS = {7: 206, 131: 177, 137: 155, 152: 25, 158: 28, 277: 176, 291: 186, 358: 111}
+PARITY_IDS = frozenset((LITE_IDS - PARITY_REPLACEMENTS.keys()) | set(PARITY_REPLACEMENTS.values()))
+assert len(PARITY_IDS) == 100
+assert not {f"en-{i:03d}" for i in PARITY_IDS} & EXCLUDED_TASKS.keys()
+assert {f"en-{i:03d}" for i in PARITY_REPLACEMENTS} <= EXCLUDED_TASKS.keys()
+
 
 WORK_DIR = "/app"
 OUTPUT_DIR = "model_output"

@@ -40,8 +40,9 @@ def test_full_split_generates_both_languages(repo, tmp_path):
     out = tmp_path / "out"
     ad.WorkspaceBenchAdapter(out, tasks_root=repo, limit=None).run()
     names = sorted(p.name for p in out.iterdir())
-    assert len(names) == 776
+    assert len(names) == 776 - len(ad.EXCLUDED_TASKS) == 736
     assert names[0] == "cn-001" and "en-388" in names
+    assert not set(names) & ad.EXCLUDED_TASKS.keys()
 
 
 def test_parity_split_is_english_subset(repo, tmp_path):
@@ -50,7 +51,9 @@ def test_parity_split_is_english_subset(repo, tmp_path):
     names = {p.name for p in out.iterdir()}
     assert len(names) == 100 == len(ad.PARITY_IDS)
     assert names == {f"en-{i:03d}" for i in ad.PARITY_IDS}
-    assert ad.PARITY_IDS <= ad.LITE_IDS
+    assert len(ad.PARITY_IDS - ad.LITE_IDS) == 8  # the replacements, all outside Lite
+    assert set(ad.PARITY_REPLACEMENTS.values()) == ad.PARITY_IDS - ad.LITE_IDS
+    assert not names & ad.EXCLUDED_TASKS.keys()
 
 
 def test_task_contents(repo, tmp_path):
@@ -189,3 +192,8 @@ def test_chunked_fetch_unpacks_identical_files_and_resumes(tmp_path, monkeypatch
     assert max(e for _, e in calls) <= q_start  # never reads another persona's bytes
 
     assert len(fw.plan_chunks(entries, limit=1)) == len(entries)  # one run per entry when the limit is tiny
+
+
+def test_excluded_tasks_have_reasons():
+    assert len(ad.EXCLUDED_TASKS) == 40
+    assert all(n[:3] in ("en-", "cn-") and len(r) > 30 for n, r in ad.EXCLUDED_TASKS.items())
