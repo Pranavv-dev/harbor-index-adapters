@@ -102,6 +102,7 @@ def test_skills_split_per_tool_like_upstream(repo, tmp_path):
     out = tmp_path / "out"
     ad.WorkspaceBenchAdapter(out, tasks_root=repo, task_ids=["en-033"]).run()
     df = (out / "en-033" / "environment" / "Dockerfile").read_text()
+    assert not list(out.rglob("__pycache__"))
     assert "for s in docx pdf pptx xlsx; do" in df
     assert "for s in docx pdfs slides spreadsheets; do" in df
     assert "/root/.agents/skills" in df
@@ -125,9 +126,15 @@ def test_wrong_task_count_fails(tmp_path):
 def _fetch_module():
     import importlib.util
 
+    import sys
+
     spec = importlib.util.spec_from_file_location("fetch_workspace", ad.TEMPLATE_DIR / "environment" / "fetch_workspace.py")
     mod = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(mod)
+    before, sys.dont_write_bytecode = sys.dont_write_bytecode, True  # no __pycache__ inside the task template
+    try:
+        spec.loader.exec_module(mod)
+    finally:
+        sys.dont_write_bytecode = before
     return mod
 
 

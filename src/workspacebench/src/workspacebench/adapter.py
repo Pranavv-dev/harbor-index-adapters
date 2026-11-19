@@ -194,7 +194,7 @@ class WorkspaceBenchAdapter:
                 logger.info("Skipping %s (exists; use --overwrite)", task.name)
                 return
             shutil.rmtree(task_dir)
-        shutil.copytree(TEMPLATE_DIR, task_dir)
+        shutil.copytree(TEMPLATE_DIR, task_dir, ignore=shutil.ignore_patterns("__pycache__", "*.pyc"))
 
         prompt = wrap_prompt(
             prompt=str(task.meta["task"]),
