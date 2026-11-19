@@ -262,7 +262,7 @@ class WorkspaceBenchAdapter:
             logger.warning("No oracle output for %s; solve.sh will fail", task.name)
             out.mkdir(parents=True)
         else:
-            shutil.copytree(oracle, out)
+            shutil.copytree(oracle, out, ignore=shutil.ignore_patterns("__pycache__", "*.pyc"))
 
         for script in ("solution/solve.sh", "tests/test.sh"):
             (task_dir / script).chmod(0o755)
