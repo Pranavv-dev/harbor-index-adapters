@@ -117,3 +117,75 @@ def test_wrong_task_count_fails(tmp_path):
     _fake_repo(tmp_path / "small", "en", ids=range(1, 10))
     with pytest.raises(RuntimeError, match="Expected 388"):
         ad.WorkspaceBenchAdapter(tmp_path / "out", tasks_root=tmp_path / "small", languages=["en"]).run()
+
+
+def _fetch_module():
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location("fetch_workspace", ad.TEMPLATE_DIR / "environment" / "fetch_workspace.py")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def test_chunked_fetch_unpacks_identical_files_and_resumes(tmp_path, monkeypatch):
+    """Range-request unpacking matches zipfile byte for byte, also after a dropped connection."""
+    import os
+    import random
+    import zipfile
+
+    fw = _fetch_module()
+    rnd = random.Random(0)
+    src = {
+        "P/": None,
+        "P/a.txt": b"hello " * 1000,
+        "P/sub/": None,
+        "P/sub/b.bin": rnd.randbytes(300_000),
+        "P/sub/c.txt": "中文 ".encode() * 5000,
+        "Q/other.txt": b"not this persona",
+    }
+    zpath = tmp_path / "w.zip"
+    with zipfile.ZipFile(zpath, "w") as z:
+        for i, (name, data) in enumerate(src.items()):
+            if data is None:
+                z.writestr(zipfile.ZipInfo(name), b"")
+            else:
+                z.writestr(name, data, compress_type=zipfile.ZIP_DEFLATED if i % 2 else zipfile.ZIP_STORED)
+    blob = zpath.read_bytes()
+    with zipfile.ZipFile(zpath) as z:
+        infos = sorted(z.infolist(), key=lambda i: i.header_offset)
+        ends = [i.header_offset for i in infos[1:]] + [z.start_dir]
+    dest = tmp_path / "dest"
+    entries = []
+    for i, end in zip(infos, ends):
+        if not i.filename.startswith("P/"):
+            continue
+        rel = i.filename[2:]
+        out = None if not rel or i.is_dir() else str(dest / rel)
+        if out:
+            os.makedirs(os.path.dirname(out), exist_ok=True)
+        entries.append(fw.Entry(i, end, out))
+
+    calls = []
+
+    def fetch(start, end):
+        calls.append((start, end))
+        data = blob[start:end]
+        for k in range(0, len(data), 4096):
+            if len(calls) == 1 and k >= 200_000:
+                raise ConnectionError("simulated drop")
+            yield data[k:k + 4096]
+
+    monkeypatch.setattr(fw.time, "sleep", lambda s: None)
+    chunks = fw.plan_chunks(entries)
+    assert len(chunks) == 1  # persona entries are adjacent
+    total = sum(fw.unpack_chunk(fetch, c, log=lambda *a, **k: None) for c in chunks)
+    files = {n: d for n, d in src.items() if n.startswith("P/") and d is not None}
+    assert total == sum(len(d) for d in files.values())
+    for name, data in files.items():
+        assert (dest / name[2:]).read_bytes() == data
+    assert len(calls) == 2 and calls[1][0] > calls[0][0]  # resumed at the entry in progress, not from the start
+    q_start = next(i.header_offset for i in infos if i.filename.startswith("Q/"))
+    assert max(e for _, e in calls) <= q_start  # never reads another persona's bytes
+
+    assert len(fw.plan_chunks(entries, limit=1)) == len(entries)  # one run per entry when the limit is tiny
