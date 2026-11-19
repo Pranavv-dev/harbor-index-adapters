@@ -1,4 +1,12 @@
 {
+ "en-002": {
+  "honest_score": "22/24",
+  "rubrics": [
+   10,
+   11
+  ],
+  "reason": "rubrics 10/11 ask whether security_policy_15/25 still preserve 'Reporting Vulnerabilities' / 'Dependency Scanning', but neither phrase is in any input (as in cn-002)"
+ },
  "en-007": {
   "honest_score": "7/10",
   "rubrics": [
@@ -117,6 +125,13 @@
   ],
   "reason": "rubrics 3/4/5/8/10/11/18 need amounts, statuses, counts, a 2,238,192 total and acceptance bills the 20 statements contradict (sum 2,306,562); rubric 7 (invalid source dates) is judge-dependent"
  },
+ "en-179": {
+  "honest_score": "14/15",
+  "rubrics": [
+   7
+  ],
+  "reason": "rubric 7 requires the file name '__ PH_1 __', an unfilled placeholder the instruction never states (metadata lists Product_Showcase_PPT.pptx)"
+ },
  "en-180": {
   "honest_score": "18/19",
   "rubrics": [
@@ -141,6 +156,14 @@
   ],
   "reason": "rubric 15's expected file name is the unfilled placeholder __ PH_24 __ (outputs.txt fixes Common_Employment_Contract_Templates.docx); rubrics 5/7 also fail but are judge-dependent"
  },
+ "en-207": {
+  "honest_score": "19/20",
+  "rubrics": [
+   4,
+   11
+  ],
+  "reason": "rubric 4 requires Zhang Haoran's score to be 82 and the Excellence Award, while rubric 11 requires all four candidates to be rated excellent at 85 or above"
+ },
  "en-210": {
   "honest_score": "14/17",
   "rubrics": [
@@ -149,6 +172,28 @@
    13
   ],
   "reason": "rubrics 1/2 ask for guobacai and an Old City custom no PPT has (en mistranslations), and rubric 13 (PPT content only) conflicts with rubrics 4/8, which need climate labels the PPTs lack"
+ },
+ "en-226": {
+  "honest_score": "at most 6/22",
+  "rubrics": [
+   1,
+   2,
+   3,
+   4,
+   5,
+   6,
+   7,
+   8,
+   9,
+   10,
+   11,
+   12,
+   13,
+   14,
+   16,
+   20
+  ],
+  "reason": "the English code inputs are clean (the translation fixed them); rubrics 1-14, 16 and 20 grade 13 specific bugs that exist only in the Chinese originals"
  },
  "en-233": {
   "honest_score": "19/21",

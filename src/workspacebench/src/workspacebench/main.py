@@ -17,7 +17,7 @@ def main() -> None:
         "--split",
         choices=["full", "parity"],
         default="full",
-        help="full: all tasks except EXCLUDED_TASKS (736). parity: 100 English tasks, Workspace-Bench-Lite with its 8 excluded tasks replaced",
+        help="full: all tasks except EXCLUDED_TASKS (732). parity: 100 English tasks, Workspace-Bench-Lite with its 10 excluded tasks replaced",
     )
     parser.add_argument(
         "--languages",

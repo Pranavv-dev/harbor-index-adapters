@@ -97,11 +97,14 @@ EXCLUDED_TASKS: dict[str, str] = {
     for name, e in json.loads((Path(__file__).parent / "excluded_tasks.json").read_text(encoding="utf-8")).items()
 }
 
-# Parity split: the 100 Workspace-Bench-Lite tasks in English, except that the 8
+# Parity split: the 100 Workspace-Bench-Lite tasks in English, except that the 10
 # Lite tasks in EXCLUDED_TASKS are replaced. Rule: same persona and difficulty,
 # an English task outside Lite whose oracle was audited as using no rubric-only
-# values, lowest task number first.
-PARITY_REPLACEMENTS = {7: 206, 131: 177, 137: 155, 152: 25, 158: 28, 277: 176, 291: 186, 358: 111}
+# values and whose rubrics name no file by a placeholder the instruction never
+# gives, lowest task number first.
+PARITY_REPLACEMENTS = {
+    7: 206, 131: 177, 137: 155, 152: 25, 158: 28, 207: 58, 226: 4, 277: 279, 291: 186, 358: 111,
+}
 PARITY_IDS = frozenset((LITE_IDS - PARITY_REPLACEMENTS.keys()) | set(PARITY_REPLACEMENTS.values()))
 assert len(PARITY_IDS) == 100
 assert not {f"en-{i:03d}" for i in PARITY_IDS} & EXCLUDED_TASKS.keys()
