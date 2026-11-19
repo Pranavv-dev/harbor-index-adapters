@@ -4,7 +4,7 @@
 #
 # Tooling follows upstream evaluation/docker/Dockerfile (Workspace-Bench @
 # 3fbd0f1), minus the Codex / OpenClaw / DeepAgents / DeepSeek harnesses.
-FROM node:24-bookworm-slim
+FROM node:24-bookworm-slim@sha256:dc26ae92c9fb15cf6b1d63e20f0944b2efe0f115b20e00be48fb23fceb061c54
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV NODE_PATH=/opt/workspace-bench/office-runtime/node_modules
@@ -16,12 +16,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     tesseract-ocr tesseract-ocr-chi-sim tesseract-ocr-eng unzip wget zip build-essential \
     && rm -rf /var/lib/apt/lists/*
 
-RUN python3 -m pip install --no-cache-dir --break-system-packages \
+COPY pip-constraints.txt /tmp/pip-constraints.txt
+RUN python3 -m pip install --no-cache-dir --break-system-packages -c /tmp/pip-constraints.txt \
     defusedxml lxml "markitdown[pptx]" numpy openpyxl pandas pdf2image pdfplumber pypdf pypdfium2 \
     Pillow python-docx python-pptx pytesseract reportlab tqdm pyyaml uv remotezip==0.12.6
 
 COPY office-runtime.package.json /opt/workspace-bench/office-runtime/package.json
-RUN npm install --prefix /opt/workspace-bench/office-runtime --omit=dev
+COPY office-runtime.package-lock.json /opt/workspace-bench/office-runtime/package-lock.json
+RUN npm ci --prefix /opt/workspace-bench/office-runtime --omit=dev
 
 # Upstream evaluation code at a pinned commit: the output collector and the
 # agent-as-a-judge used by the verifier, with its Claude Agent SDK.
