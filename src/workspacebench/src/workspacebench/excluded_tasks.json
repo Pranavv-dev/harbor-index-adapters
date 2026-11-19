@@ -16,6 +16,14 @@
   ],
   "reason": "rubrics 2-4 require copy sizes 4000/4586/5613 B, but the en input files are 4760/5582/6511 B and rubrics 7-9 require byte-identical copies"
  },
+ "en-018": {
+  "honest_score": "not passable (rubric conflict)",
+  "rubrics": [
+   1,
+   14
+  ],
+  "reason": "rubric 2 excludes only Diagram 5 of the source's 8 roadmaps and the next rubrics require each other one, so 7 remain, but rubrics 1 and 14 require exactly 6 slides, one roadmap each (same rubrics as cn-018)"
+ },
  "en-020": {
   "honest_score": "13/20",
   "rubrics": [
@@ -283,6 +291,14 @@
   ],
   "reason": "rubrics 10/11 require SECURITY_15/25 to keep 'Reporting Vulnerabilities' and 'Dependency Scanning' text the inputs lack, and rubric 16 forbids adding it; en-002 passes only by judge leniency"
  },
+ "cn-018": {
+  "honest_score": "not passable (rubric conflict)",
+  "rubrics": [
+   1,
+   14
+  ],
+  "reason": "rubric 2 excludes only Diagram 5 of the source's 8 roadmaps and the next rubrics require each other one, so 7 remain, but rubrics 1 and 14 require exactly 6 slides, one roadmap each"
+ },
  "cn-020": {
   "honest_score": "14/20",
   "rubrics": [
@@ -375,6 +391,13 @@
    11
   ],
   "reason": "rubrics 4/10/11 need an 8% return rate and ~33.6k packaging/after-sales cost no file has (sourced total 376,889, margin 65.67%); a policy line, as the task allows starred assumptions"
+ },
+ "cn-210": {
+  "honest_score": "16/17 (17/17 in one grading)",
+  "rubrics": [
+   13
+  ],
+  "reason": "rubric 13 requires the report to come 100% from the PPTs, while rubrics 1-4, 6 and 8 need facts and climate labels the PPTs lack (as in en-210); judge-dependent"
  },
  "cn-233": {
   "honest_score": "18/21",

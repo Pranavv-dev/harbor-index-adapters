@@ -40,7 +40,7 @@ def test_full_split_generates_both_languages(repo, tmp_path):
     out = tmp_path / "out"
     ad.WorkspaceBenchAdapter(out, tasks_root=repo, limit=None).run()
     names = sorted(p.name for p in out.iterdir())
-    assert len(names) == 776 - len(ad.EXCLUDED_TASKS) == 732
+    assert len(names) == 776 - len(ad.EXCLUDED_TASKS) == 729
     assert names[0] == "cn-001" and "en-388" in names
     assert not set(names) & ad.EXCLUDED_TASKS.keys()
 
@@ -202,7 +202,7 @@ def test_chunked_fetch_unpacks_identical_files_and_resumes(tmp_path, monkeypatch
 
 
 def test_excluded_tasks_have_reasons():
-    assert len(ad.EXCLUDED_TASKS) == 44
+    assert len(ad.EXCLUDED_TASKS) == 47
     assert all(n[:3] in ("en-", "cn-") and len(r) > 30 for n, r in ad.EXCLUDED_TASKS.items())
 
 
