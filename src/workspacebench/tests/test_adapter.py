@@ -204,3 +204,13 @@ def test_chunked_fetch_unpacks_identical_files_and_resumes(tmp_path, monkeypatch
 def test_excluded_tasks_have_reasons():
     assert len(ad.EXCLUDED_TASKS) == 40
     assert all(n[:3] in ("en-", "cn-") and len(r) > 30 for n, r in ad.EXCLUDED_TASKS.items())
+
+
+def test_metadata_normalized_like_upstream(repo, tmp_path):
+    """The judge reads the same metadata fields upstream's downloader adds (id, job, file_system, user_profit)."""
+    out = tmp_path / "out"
+    ad.WorkspaceBenchAdapter(out, tasks_root=repo, task_ids=["en-033"]).run()
+    meta = json.loads((out / "en-033" / "tests" / "task" / "metadata.json").read_text())
+    assert meta["id"] == "33"
+    assert meta["job"] == meta["persona"]
+    assert meta["file_system"] == meta["user_profit"] == ad.PERSONA_TO_FILE_SYSTEM[meta["persona"]]

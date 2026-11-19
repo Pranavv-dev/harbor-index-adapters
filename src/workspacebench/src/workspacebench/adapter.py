@@ -37,6 +37,33 @@ PERSONA_DIRS = {
     "Researcher": "Research_Workdir",
 }
 
+# Upstream's downloader (evaluation/scripts/download_hf_assets.py @ 3fbd0f1,
+# _normalize_task_meta) adds these fields to every task's metadata before its
+# runner and judge read it. On the pinned task data it adds exactly id, job,
+# file_system and user_profit (checked on all 776 tasks); language is unchanged.
+PERSONA_TO_FILE_SYSTEM = {
+    "Product Manager": "产品人员",
+    "Backend Developer": "开发人员",
+    "Researcher": "研究人员",
+    "Operations Manager": "运营人员",
+    "Logistics Manager": "行政/后勤人员",
+}
+
+
+def normalize_meta(meta: dict, task_id: str) -> dict:
+    """Same additions as upstream's _normalize_task_meta (see PERSONA_TO_FILE_SYSTEM)."""
+    meta.setdefault("id", task_id)
+    persona = str(meta.get("persona") or meta.get("job") or "").strip()
+    file_system = str(meta.get("file_system") or "").strip()
+    fs = PERSONA_TO_FILE_SYSTEM.get(persona) or PERSONA_TO_FILE_SYSTEM.get(file_system) or file_system
+    if fs:
+        meta["file_system"] = fs
+        meta.setdefault("user_profit", fs)
+    if persona:
+        meta.setdefault("job", persona)
+    return meta
+
+
 # Disk each persona workspace needs inside the sandbox (unzipped size plus room
 # for outputs and the office tooling).
 PERSONA_STORAGE_MB = {
@@ -146,7 +173,7 @@ class WorkspaceBenchAdapter:
             if len(found) != 388:
                 raise RuntimeError(f"Expected 388 {language} tasks in {tasks_dir}, found {len(found)}")
             for d in found:
-                meta = json.loads((d / "metadata.json").read_text())
+                meta = normalize_meta(json.loads((d / "metadata.json").read_text()), d.name)
                 tasks.append(WorkspaceTask(int(d.name), language, meta, d))
         return tasks
 
