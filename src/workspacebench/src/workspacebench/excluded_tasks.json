@@ -37,6 +37,32 @@
   ],
   "reason": "rubrics 3/5/7/14/15/18 need figures no file has (food 120.75, a 42/28/18/12 split, 242,000 waste, 12-month and 8-quarter series, 78-90%); rubric 12's savings range is judge-dependent"
  },
+ "en-021": {
+  "honest_score": "18/19 (19/19 in 1 of 4 Harbor gradings)",
+  "rubrics": [
+   15
+  ],
+  "reason": "rubric 15 needs a matching gameplay video link for all 5 games; no Monster-specific video exists, so the honest answer uses a compilation link and the judge accepts it only sometimes"
+ },
+ "en-039": {
+  "honest_score": "not passable (inputs contradict the rubric)",
+  "rubrics": [
+   1,
+   2,
+   5,
+   8,
+   12
+  ],
+  "reason": "rubrics 1/2/5, 8, 12 expect 208 days from 2022-03-01 and April/May new works of 89/92; the source has 209 days and 54/60, and the 67.53% retention can't be derived"
+ },
+ "en-050": {
+  "honest_score": "not passable (inputs contradict the rubric)",
+  "rubrics": [
+   7,
+   12
+  ],
+  "reason": "rubric 7 (and 12) require risk-return ratios of 1.26 and 0.50 and a composite score of 90 that no formula over the input figures produces"
+ },
  "en-052": {
   "honest_score": "16/20",
   "rubrics": [
@@ -211,6 +237,23 @@
   ],
   "reason": "rubric 17 expects 39.80%, but 346,690,218.69 / 871,229,686.48 gives 39.79% (as the report prints); rubric 2 expects 68 income-statement rows, but all four reports have 67"
  },
+ "en-234": {
+  "honest_score": "not passable (inputs contradict the rubric)",
+  "rubrics": [
+   3,
+   5
+  ],
+  "reason": "rubric 5 (and 3) require 2020 growth of 0.3% and 2015-16 as the only decline; the inputs give +5.1% for 2020 and further declines in 2019, 2022 and 2023"
+ },
+ "en-239": {
+  "honest_score": "not passable (inputs contradict the rubric)",
+  "rubrics": [
+   13,
+   14,
+   16
+  ],
+  "reason": "rubrics 13/14 require a five-year retention rule, an index path and working-day limits that appear in no template, while rubric 16 forbids anything beyond the templates"
+ },
  "en-259": {
   "honest_score": "18/20",
   "rubrics": [
@@ -238,6 +281,14 @@
    16
   ],
   "reason": "rubrics 2/3/4/12/13/16 rest on a 145,000 annual target (35k/40k splits, 43,500 ads, 65,250 COGS) no file has (the plan says 2,241,000); rubric 10 wants 89-199 prices, inputs give 268-358"
+ },
+ "en-312": {
+  "honest_score": "not passable (inputs contradict the rubric)",
+  "rubrics": [
+   4,
+   15
+  ],
+  "reason": "rubrics 4 and 15 require a 40-point sales cap and 30 points for temporary work cooperation; the source says 80 and 20"
  },
  "en-336": {
   "honest_score": "5/14",
