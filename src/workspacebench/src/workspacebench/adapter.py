@@ -97,18 +97,25 @@ EXCLUDED_TASKS: dict[str, str] = {
     for name, e in json.loads((Path(__file__).parent / "excluded_tasks.json").read_text(encoding="utf-8")).items()
 }
 
-# Parity split: the 100 Workspace-Bench-Lite tasks in English, except that the 10
-# Lite tasks in EXCLUDED_TASKS are replaced. Rule: same persona and difficulty,
-# an English task outside Lite whose oracle was audited as using no rubric-only
-# values and whose rubrics name no file by a placeholder the instruction never
-# gives, lowest task number first.
+# Parity pool: the 100 Workspace-Bench-Lite tasks in English, with the 10 Lite tasks in
+# EXCLUDED_TASKS replaced (same persona and difficulty, an English task outside Lite whose
+# oracle was audited as using no rubric-only values and whose rubrics name no file by a
+# placeholder the instruction never gives, lowest task number first).
 PARITY_REPLACEMENTS = {
     7: 206, 131: 177, 137: 155, 152: 25, 158: 28, 207: 58, 226: 4, 277: 279, 291: 186, 358: 111,
 }
-PARITY_IDS = frozenset((LITE_IDS - PARITY_REPLACEMENTS.keys()) | set(PARITY_REPLACEMENTS.values()))
-assert len(PARITY_IDS) == 100
-assert not {f"en-{i:03d}" for i in PARITY_IDS} & EXCLUDED_TASKS.keys()
+PARITY_POOL = frozenset((LITE_IDS - PARITY_REPLACEMENTS.keys()) | set(PARITY_REPLACEMENTS.values()))
+assert len(PARITY_POOL) == 100
+assert not {f"en-{i:03d}" for i in PARITY_POOL} & EXCLUDED_TASKS.keys()
 assert {f"en-{i:03d}" for i in PARITY_REPLACEMENTS} <= EXCLUDED_TASKS.keys()
+
+# Parity split (what the parity experiment ran on): 50 tasks of the pool, after setting aside
+# the 13 whose oracle needed values the inputs lack (oracle/disclosure) or whose rubric names
+# a file the instruction never gives (en-178). Stratified by persona like the pool
+# (Operations 16, Logistics 15, Researcher 9, Backend 5, Product 5), random.Random(20261120),
+# chosen before any parity run.
+PARITY_IDS = frozenset({3, 13, 25, 37, 44, 47, 54, 55, 72, 75, 78, 79, 87, 91, 100, 107, 108, 111, 120, 124, 139, 143, 146, 155, 171, 175, 177, 186, 191, 192, 227, 242, 244, 255, 266, 276, 278, 279, 284, 287, 288, 311, 314, 328, 329, 334, 357, 363, 373, 386})
+assert len(PARITY_IDS) == 50 and PARITY_IDS <= PARITY_POOL
 
 
 WORK_DIR = "/app"

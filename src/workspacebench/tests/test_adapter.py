@@ -49,10 +49,10 @@ def test_parity_split_is_english_subset(repo, tmp_path):
     out = tmp_path / "out"
     ad.WorkspaceBenchAdapter(out, tasks_root=repo, split="parity").run()
     names = {p.name for p in out.iterdir()}
-    assert len(names) == 100 == len(ad.PARITY_IDS)
+    assert len(names) == 50 == len(ad.PARITY_IDS)
     assert names == {f"en-{i:03d}" for i in ad.PARITY_IDS}
-    assert len(ad.PARITY_IDS - ad.LITE_IDS) == 10  # the replacements, all outside Lite
-    assert set(ad.PARITY_REPLACEMENTS.values()) == ad.PARITY_IDS - ad.LITE_IDS
+    assert ad.PARITY_IDS <= ad.PARITY_POOL and len(ad.PARITY_POOL - ad.LITE_IDS) == 10
+    assert set(ad.PARITY_REPLACEMENTS.values()) == ad.PARITY_POOL - ad.LITE_IDS
     assert not names & ad.EXCLUDED_TASKS.keys()
 
 
