@@ -3,12 +3,12 @@
     "adapter_name": "workspacebench",
     "agent": "claude-code@2.1.311",
     "model": "claude-haiku-4-5",
-    "date": "YYYY-MM-DD",
+    "date": "2026-11-21",
     "adapted_benchmark_size": 723,
     "parity_benchmark_size": 50,
     "number_of_runs": 4,
-    "notes": null,
-    "original_parity_repo": null,
+    "notes": "Scenario 1: upstream already runs Claude Code. The original side is upstream's own pipeline (isolated task container, task view, prompt building, output collection, agent_as_a_judge.py) in the fork's harbor-parity branch, with Claude Code launched exactly as Harbor 0.26.0's claude-code agent launches it (evaluation/scripts/harbor_parity/test_identical_launch.py; recorded API requests identical on both sides apart from session ids). Both sides: claude-code@2.1.311 with claude-haiku-4-5 through the 2077AI API, which serves only this undated alias; judge claude-sonnet-5-5 with upstream's rubric judge, one verdict per task. Agent timeout 4000 s on both sides because the API proxy queues requests (the adapter's default stays 2000 s). Subset: 50 English tasks (README explains the selection). Failure rule, same on both sides: agent timeouts and crashes are scored; API or infrastructure failures are rerun (1 case: original run 1, en-078, 'Connection lost mid-response'); judge failures are rerun, never scored 0 (1 case: original run 4, en-013, the judge could not read the output). 400/400 trials scored. Harbor runs: 2026-11-20/21. Original runs: 2026-11-21, fork commit 68d3a8a, with the agent working in /app and logging to /logs/agent as on Harbor. An earlier set of 4 original runs, made before an audit found that the original side's prompt still differed from Harbor's (a long per-case work-folder path and a git-status block), is superseded; it is listed with every diagnostic run in the parity upload.",
+    "original_parity_repo": "https://github.com/Pranavv-dev/Workspace-Bench/tree/harbor-parity",
     "adapter_pr": [
       "https://github.com/harbor-index/adapters/pull/26"
     ],
@@ -18,10 +18,10 @@
       {
         "benchmark_name": "Workspace-Bench",
         "metric": "mean rubric pass rate (%)",
-        "original": "<mean +/- sample_SEM>",
-        "harbor": "<mean +/- sample_SEM>",
-        "original_runs": [],
-        "harbor_runs": []
+        "original": "44.05 ± 0.7205",
+        "harbor": "44.70 ± 0.4013",
+        "original_runs": [42.75, 42.90, 45.60, 44.95],
+        "harbor_runs": [43.90, 45.54, 45.23, 44.14]
       }
     ]
   }
