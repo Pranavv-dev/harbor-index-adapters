@@ -158,7 +158,7 @@ harbor run -c src/workspacebench/workspacebench_parity.yaml
 **Notes on the parity runs:**
 - **Model ID.** The guide asks for a dated model ID, but the 2077AI API only serves the alias `claude-haiku-4-5`. Both sides used the same alias through the same API.
 - **Timeout.** The agent timeout was 4000 s on both sides, because the API proxy queues requests. The tasks keep upstream's 2000 s default.
-- **Failure rule, fixed before the runs and the same on both sides.** Agent timeouts and crashes are scored. API and infrastructure failures are rerun. Judge failures are rerun and never scored 0. Two trials were recovered this way, both with the first attempt kept: en-078 in original run 1 (API error, "Connection lost mid-response") and en-013 in original run 4 (the judge said it could not read the agent's .pptx).
+- **Failure rule, fixed before the runs and the same on both sides.** Agent timeouts and crashes are scored. API and infrastructure failures are rerun. Judge failures are rerun and never scored 0. Two trials were recovered this way, both with the first attempt kept: en-078 in original run 1 (API error, "Connection lost mid-response") and en-013 in original run 4 (the judge said it could not read the agent's .pptx). Keeping en-013's first verdict instead, original run 4 is 44.32 and the ranges still overlap (42.75–45.60 vs 43.90–45.54).
 - **Same grading.** Harbor run 1's outputs were re-judged by the original side's judge: 43.89, against 43.90 from Harbor's own verifier.
 - **Superseded runs.** A first set of 4 original runs still differed from Harbor in what the agent saw: a long per-case work-folder path in the prompt and every tool call, a git-status block (the folder sat inside the repo checkout), and a different memory path. Recording both sides' requests found this. The original side now works in `/app` and logs to `/logs/agent`, as on Harbor, and was rerun from a sanity check. Harbor's runs did not change. The superseded runs are in the upload and are not counted.
 - **Noisy tasks.** On some tasks the judge's verdict on the same answer varies a lot (en-055 went from 0/20 to 12/20 on one answer across re-judgings), so a single run moves by about ±1.5 points. The early runs' gap came from a few such tasks: run side by side 6 times per side, the 6 tasks that carried it differ by +0.18 points.
@@ -185,6 +185,10 @@ harbor run -c src/workspacebench/workspacebench_parity.yaml
 - If every judge attempt fails, upstream scores the task 0. Here the verifier exits without writing a reward, so Harbor records the trial as errored instead of as a real 0.
 - Upstream's opt-in task patches (9 Chinese Lite tasks, `scripts/apply_task_patches.py`) are not applied, matching upstream's default.
 - Upstream's path-gating permission callback isn't used; Harbor's `claude-code` runs with `bypassPermissions`.
+
+**Residual risks.**
+- The agent runs as root in its container, which also runs the collect hook and holds Claude Code's log. The judge reads that log as the agent's trace (process rubrics use it), so an agent that rewrote its own log could change the evidence the judge sees. The rubrics, the expected output names and the judge never enter the agent's container, and the judge runs in a fresh container. The original side of the parity experiment has the same exposure.
+- The agent has network access (it needs the model API), and the task data, rubrics included, are public on Hugging Face. Task names and prompts don't name the benchmark, but upstream's code under `/opt/wsb` in the image does.
 
 **Comparability.** The paper's numbers are on the Chinese set, and upstream's leaderboard judged with Seed 2.0 Lite. This adapter's judge is `claude-sonnet-5-5`, so absolute scores aren't comparable with the leaderboard.
 
