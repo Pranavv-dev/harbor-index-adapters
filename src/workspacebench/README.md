@@ -1,4 +1,4 @@
-## Workspace-Bench → Harbor Adapter
+# Workspace-Bench → Harbor Adapter
 
 ## Overview
 
@@ -63,6 +63,7 @@ src/workspacebench/
 ├── pyproject.toml
 ├── run_workspacebench.yaml       # Oracle job config
 ├── workspacebench_parity.yaml    # Harbor side of the parity experiment
+├── scripts/                      # oracle_tools.py and oracle_prompts/: how the oracle files were built
 ├── tests/                        # adapter, exclusion, metadata and workspace-fetch tests
 └── src/workspacebench/
     ├── adapter.py                # Download, filter, name and render tasks; exclusions; parity split
@@ -131,7 +132,7 @@ Parity ran on 50 English tasks. The pool was Workspace-Bench Lite's 100 English 
 
 Scores are mean ± sample SEM over the 4 runs. Per run: original 42.75 / 42.90 / 45.60 / 44.95, Harbor 43.90 / 45.54 / 45.23 / 44.14. The run ranges overlap. All 400 trials have a valid score. Full details are in `parity_experiment.json`.
 
-Parity and oracle artifacts: [harborframework/parity-experiments#292](https://huggingface.co/datasets/harborframework/parity-experiments/discussions/292). That repository is over the Hub's file limit, so for now the files are in [PranavVashistha/workspacebench-parity-experiments](https://huggingface.co/datasets/PranavVashistha/workspacebench-parity-experiments) in the same layout. Its `ATTEMPTS.md` lists every run on both sides and which ones count.
+Parity and oracle artifacts: [harborframework/parity-experiments#292](https://huggingface.co/datasets/harborframework/parity-experiments/discussions/292). That repository is over the Hub's file limit, so for now the files are in [PranavVashistha/workspacebench-parity-experiments](https://huggingface.co/datasets/PranavVashistha/workspacebench-parity-experiments/tree/393da848d5e9785774f5f5a2921a7061d043d8fe) in the same layout, pinned at revision `393da84`. They'll move to #292 once that repository accepts uploads. Its `ATTEMPTS.md` lists every run on both sides and which ones count.
 
 **Metric:** for each task, the share of rubric points the judge passes, averaged over tasks. This is Harbor's `reward`.
 
@@ -155,6 +156,13 @@ cd ../..
 harbor run -c src/workspacebench/workspacebench_parity.yaml
 ```
 
+The parity runs used Harbor 0.26.0 (commit `3cb6273`) with prebuilt images, so 5 builds (one per persona; all 50 tasks are English) covered the 50 tasks instead of one per task. Every task's `environment/` is the same template rendered with only its language and persona, so tasks that share both share an image. The images were built from those same `environment/` folders, and each parity task's `task.toml` got `docker_image = "<tag>"` under `[environment]`, with `force_build: false` in `workspacebench_parity.yaml`. Nothing else in the tasks changed. The command above builds each task's image instead, which gives the same image but takes longer and needs more disk. To do it the parity way:
+
+```bash
+# for each task: docker build -t <tag> datasets/workspacebench-parity/<task>/environment
+# then add docker_image = "<tag>" under [environment] in that task's task.toml
+```
+
 **Notes on the parity runs:**
 - **Model ID.** The guide asks for a dated model ID, but the 2077AI API only serves the alias `claude-haiku-4-5`. Both sides used the same alias through the same API.
 - **Timeout.** The agent timeout was 4000 s on both sides, because the API proxy queues requests. The tasks keep upstream's 2000 s default.
@@ -168,7 +176,7 @@ harbor run -c src/workspacebench/workspacebench_parity.yaml
 
 **Excluded tasks (53: 35 English, 18 Chinese).** For each one, an answer built only from the task's inputs fails at least one rubric point. A rubric contradicts the inputs or another rubric (en/cn-018 keeps 7 roadmaps but requires 6 slides), asks for values no input contains, names a file by a template placeholder the instruction never fills in, or points to something that doesn't exist (en-021's video link). Some English inputs translated from Chinese no longer match rubrics written for the Chinese data (en-226: the translation fixed the 13 bugs the rubric grades). Each task's reason is in `excluded_tasks.json`.
 
-**Oracle files.** Workspace-Bench ships rubrics but no reference outputs, so the oracle files were built with AI help. For each task, Claude Code wrote a script that builds the deliverables from the task's inputs (real Word 97 binaries for `.doc` outputs), checked them against every rubric point, and kept notes on any rubric the inputs don't support. The task's own judge then graded them. The Harbor oracle run passes all 723 tasks: 715 on the first pass, 7 more after a rerun (each had lost one rubric point to judge noise and passed unchanged), and en-025 after its answer was rebuilt. The files are not in this repo. They ship with the published dataset, and the adapter takes them with `--oracle-dir`.
+**Oracle files.** Workspace-Bench ships rubrics but no reference outputs, so the oracle files were built with AI help. For each task, Claude Code wrote a script that builds the deliverables from the task's inputs (real Word 97 binaries for `.doc` outputs), checked them against every rubric point, and kept notes on any rubric the inputs don't support. The task's own judge then graded them. The Harbor oracle run passes all 723 tasks: 715 on the first pass, 7 more after a rerun (each had lost one rubric point to judge noise and passed unchanged), and en-025 after its answer was rebuilt. The files are not in this repo. They ship with the published dataset, and the adapter takes them with `--oracle-dir`. The exact files that were tested are in the dataset PR at a fixed commit: [`datasets/workspacebench/<task>/solution/output/` @ `553f18e`](https://huggingface.co/datasets/harborframework/harbor-datasets/tree/553f18e7a6086e727e645f62bc791d9fcfbeb152/datasets/workspacebench). The tool that prepared, built and graded them is `scripts/oracle_tools.py`, and the instructions the Claude Code subagents followed are in `scripts/oracle_prompts/builder.md`. The writing itself was done by those subagents, task by task, and each failed rubric point was reviewed by hand, so the build can't be re-run end to end from this repo. The per-task build scripts aren't included, because their outputs reveal the rubrics.
 
 **Oracle disclosure.** For 109 tasks, the oracle writes a value a rubric requires although the inputs lack or contradict it, and for 16 more the answer itself labels the value as an assumption. On these tasks the oracle run checks the grading pipeline, not whether the task can be solved from its inputs. The list is in `oracle_disclosure.md`. Upstream's own rubric-grounding audit of Lite CN (`evaluation/audits/`) marks 453 of 1,850 rubrics as having no basis in the inputs, which agrees with this.
 
@@ -195,7 +203,7 @@ harbor run -c src/workspacebench/workspacebench_parity.yaml
 ## Installation / Prerequisites
 
 - Docker, installed and running, with about 40 GB of storage free to build the Researcher image.
-- Harbor; this adapter was tested with Harbor 0.26.0.
+- Harbor 0.22.0 or later. The tasks grade in a separate container (`[verifier] environment_mode = "separate"` with the top-level `artifacts` list) and use a `[[verifier.collect]]` hook, both present in Harbor 0.22.0 and later (checked in 0.22.0, 0.25.0 and 0.26.0); `schema_version` is the key name Harbor uses. This adapter was tested with Harbor 0.26.0 (commit `3cb6273`).
 - Python 3.12+ and `uv`. Install the adapter's dependencies with:
   ```bash
   cd src/workspacebench
