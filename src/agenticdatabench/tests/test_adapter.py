@@ -87,12 +87,13 @@ def test_instruction_is_upstream_prompt(source, data, tmp_path):
     assert plain == (
         "Summarise input.csv into output.csv.\n\nYou are working in the directory: /workspace."
         " All required data files are available in this directory."
-        " Complete the task and ensure all output files are saved in this directory.\n"
+        " Complete the task and ensure all output files are saved in this directory."
     )
     chart = (out / "agriculture_14" / "instruction.md").read_text()
     assert "saved in this directory.\n### Plotting (REQUIRED)" in chart
     assert "Use ONLY these file names:\noutput.png\n" in chart
     assert 'Plotprocess.plot_process(fig, "output.png")' in chart
+    assert chart.endswith("```") and not chart.endswith("\n")
 
 
 def test_chart_task_files(source, data, tmp_path):

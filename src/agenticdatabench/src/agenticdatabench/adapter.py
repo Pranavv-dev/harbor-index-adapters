@@ -313,7 +313,9 @@ class AgenticDataBenchAdapter:
             shutil.rmtree(task_dir)
         shutil.copytree(TEMPLATE_DIR, task_dir, ignore=shutil.ignore_patterns("__pycache__", "*.pyc"))
 
-        (task_dir / "instruction.md").write_text(self.instruction(task) + "\n")
+        # No newline at the end: Harbor sends instruction.md to the agent as it
+        # is, and upstream's prompt doesn't end with one.
+        (task_dir / "instruction.md").write_text(self.instruction(task))
 
         env = task_dir / "environment"
         manifest = "".join(
