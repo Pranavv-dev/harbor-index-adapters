@@ -20,7 +20,8 @@ AgenticDataBench ([paper](https://arxiv.org/abs/2607.01647), VLDB 2026; [code](h
 - **Same environment as upstream's runners.** `python:3.10-bullseye` (pinned by digest), the same system packages and the same Python packages. Upstream installs those unpinned, so they are pinned here to the versions current at upstream's last commit (2026-10-13). The work dir is `/workspace` and holds the contents of the task's domain folder, as upstream copies it.
 - **Data checked on download.** The image build fetches the domain folder file by file from the pinned revision and checks each file's size and hash (sha256 for LFS files, the git blob hash otherwise). The fetch step is identical for every task of a domain, so Docker's layer cache keeps one copy per domain.
 - **Chart tasks get upstream's plot helper.** As in upstream, tasks graded by `compare_image` get `image.py` in the work dir, and the instruction asks the agent to call `Plotprocess.plot_process` before saving the figure. This writes the plot data the grader compares (see [Notes & Caveats](#notes--caveats) for why the current upstream task file misses this).
-- **Upstream's grader.** `tests/evaluate.py` runs each task's own `eval_func` strings with upstream's metric functions (vendored in `tests/metrics/`). It binds file paths and averages scores exactly as upstream's `Evaluator` does, within the same 120 s evaluation timeout. Three grader bugs are fixed; see below. The verifier has its own Python venv in the image, separate from the agent's packages. The gold files reach the container only at verification time.
+- **Upstream's grader.** `tests/evaluate.py` runs each task's own `eval_func` strings with upstream's metric functions (vendored in `tests/metrics/`). It binds file paths and averages scores exactly as upstream's `Evaluator` does, within the same 120 s evaluation timeout. Three grader bugs are fixed; see below.
+- **Grading in a separate container.** As upstream grades outside the agent's container, the verifier here runs in a fresh container from the same image (`[verifier] environment_mode = "separate"`). It receives only the files listed in `task.toml`'s `artifacts`: the outputs the task asks for, plus the plot data next to each graded chart. The gold files never enter the agent's container, and nothing the agent changes there (the grader's packages, Python itself) reaches the grader. Check: a solve.sh that does no work but replaces the grader's Python with a script that writes reward 1.0 scored 1.0 with the grader in the agent's container, and 0.0 with it in its own container (financial_52, Harbor 0.27.0).
 - **Oracle.** `solution/solve.sh` copies upstream's gold files into `/workspace` under the output names the task asks for, plus the plot data for chart tasks.
 
 ## Generated Task Structure
@@ -28,7 +29,7 @@ AgenticDataBench ([paper](https://arxiv.org/abs/2607.01647), VLDB 2026; [code](h
 ```
 agenticdatabench/
 ├── agriculture_14/
-│   ├── task.toml                 # 2 CPUs; memory and storage sized from the domain data; 3600 s agent / 600 s verifier timeouts
+│   ├── task.toml                 # Separate verifier and its artifacts; 2 CPUs; memory and storage sized from the domain data; 3600 s agent / 600 s verifier timeouts
 │   ├── instruction.md            # Upstream's Claude Code / Codex prompt, with the plotting block for chart tasks
 │   ├── environment/
 │   │   ├── Dockerfile            # python:3.10-bullseye with upstream's packages and the domain data in /workspace
@@ -41,7 +42,7 @@ agenticdatabench/
 │   │   ├── solve.sh              # Copies the gold files to /workspace under the output names
 │   │   └── output/               # Those files (and output.json / output.npy plot data for charts)
 │   └── tests/
-│       ├── test.sh               # Runs evaluate.py in the verifier venv
+│       ├── test.sh               # Runs evaluate.py in the verifier venv (in its own container)
 │       ├── evaluate.py           # Upstream's scoring loop for one task
 │       ├── task_config.json      # The task's eval_func, output and gold file names
 │       ├── gold/                 # Upstream's gold files
@@ -155,7 +156,7 @@ python evaluate.py --output_dir output/<experiment id>
 ## Installation / Prerequisites
 
 - Docker, installed and running, with room for the images: about 4.6 GB of shared base layers plus each domain's data (19.5 GB for all 229 tasks).
-- Harbor 0.27.0 (tested); the tasks use only standard `task.toml` fields.
+- Harbor 0.22.0 or later. The tasks grade in a separate container (`[verifier] environment_mode = "separate"` with the top-level `artifacts` list in `task.toml`), which Harbor supports in 0.22.0 and later (all 229 task files checked to parse in 0.22.0 and 0.27.0). Tested with Harbor 0.27.0.
 - Python 3.12+ and `uv`. Install the adapter's dependencies with:
   ```bash
   cd src/agenticdatabench

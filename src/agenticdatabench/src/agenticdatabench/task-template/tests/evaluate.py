@@ -7,8 +7,10 @@ scores 0.0-1.0, and the task score is their mean. The whole task has upstream's
 default 120 s evaluation timeout. Upstream's trajectory bookkeeping is left out:
 it does not affect the score.
 
-Reads the agent's files from /workspace (upstream reads them from the mounted
-work dir by base name) and the gold files from /tests/gold. Writes the score to
+Runs in its own container (task.toml: environment_mode = "separate"). Reads the
+agent's files from /workspace, where Harbor puts the artifacts it copied out of
+the agent's container (upstream reads them from the mounted work dir by base
+name), and the gold files from /tests/gold. Writes the score to
 /logs/verifier/reward.txt and the per-check details to /logs/verifier/details.json.
 """
 

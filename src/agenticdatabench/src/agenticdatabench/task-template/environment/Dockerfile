@@ -23,7 +23,8 @@ COPY requirements-agent.txt /tmp/requirements-agent.txt
 RUN pip install -r /tmp/requirements-agent.txt && rm /tmp/requirements-agent.txt
 
 # The grader's own environment (upstream grades outside the agent container,
-# with testbed/requirements.txt). Used only by tests/test.sh.
+# with testbed/requirements.txt). Used only by tests/test.sh, which Harbor runs
+# in a separate container from this image.
 COPY requirements-verifier.txt /tmp/requirements-verifier.txt
 RUN python -m venv /opt/adb-verifier \
     && /opt/adb-verifier/bin/pip install -r /tmp/requirements-verifier.txt \

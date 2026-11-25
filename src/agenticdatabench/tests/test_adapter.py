@@ -114,6 +114,10 @@ def test_chart_task_files(source, data, tmp_path):
     assert toml["task"]["authors"][0] == {"name": "Zhaoyan Sun"}
     assert toml["metadata"]["output_types"] == ["csv", "png"]
     assert toml["environment"]["memory_mb"] == 8192
+    assert toml["verifier"]["environment_mode"] == "separate"
+    assert toml["artifacts"] == [
+        "/workspace/output.png", "/workspace/output.csv", "/workspace/output.json", "/workspace/output.npy"
+    ]
 
 
 def test_plain_task_files(source, data, tmp_path):
@@ -131,6 +135,20 @@ def test_plain_task_files(source, data, tmp_path):
     assert toml["metadata"]["domain"] == "loan_risk"
     assert toml["environment"]["memory_mb"] == 16384
     assert toml["environment"]["storage_mb"] >= 2 * 2048 + 8192
+    assert toml["verifier"]["environment_mode"] == "separate"
+    assert toml["artifacts"] == ["/workspace/output.csv"]
+
+
+def test_artifacts_are_exactly_the_oracle_files(source, data, tmp_path):
+    # The separate verifier sees only the artifacts, so they must cover every
+    # file the oracle writes (or the oracle would score below 1.0), and nothing
+    # else is needed by the grader.
+    out = tmp_path / "out"
+    ad.AgenticDataBenchAdapter(out, source_dir=source, task_ids=["agriculture_14", "loan_risk_5"]).run()
+    for t in out.iterdir():
+        toml = tomllib.loads((t / "task.toml").read_text())
+        oracle = sorted(f"/workspace/{p.name}" for p in (t / "solution" / "output").iterdir())
+        assert sorted(toml["artifacts"]) == oracle, t.name
 
 
 def test_rendered_files_have_no_placeholders(source, data, tmp_path):
@@ -139,7 +157,8 @@ def test_rendered_files_have_no_placeholders(source, data, tmp_path):
     for t in out.iterdir():
         for name in ("task.toml", "environment/Dockerfile"):
             text = (t / name).read_text()
-            for key in ("{task_id}", "{domain", "{image_helper}", "{memory_mb}", "{storage_mb}", "{output_types}"):
+            for key in ("{task_id}", "{domain", "{image_helper}", "{memory_mb}", "{storage_mb}", "{output_types}",
+                        "{artifacts}"):
                 assert key not in text, (t.name, name, key)
 
 

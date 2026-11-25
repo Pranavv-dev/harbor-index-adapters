@@ -2,9 +2,10 @@
 
 Each task gives the agent the contents of one domain folder of the Hugging Face
 dataset in /workspace and a written analysis request; the agent saves output
-files (CSV, JSON, PNG, TXT, SQLite) there. The verifier grades them against the
-gold files with upstream's own metric functions (tests/metrics, vendored from
-the GitHub repo at a pinned commit). The data is fetched when the image is
+files (CSV, JSON, PNG, TXT, SQLite) there. Harbor copies those files into a
+fresh container, where the verifier grades them against the gold files with
+upstream's own metric functions (tests/metrics, vendored from the GitHub repo
+at a pinned commit). The data is fetched when the image is
 built, so the generated task folders stay small.
 """
 
@@ -264,6 +265,21 @@ class AgenticDataBenchAdapter:
         return text
 
     @staticmethod
+    def artifacts(task: AdbTask) -> list[str]:
+        """The files the separate verifier gets, as paths in the agent's container.
+
+        Every output the task asks for (the grader reads each one from the work
+        dir by base name), plus the plot data next to each graded chart:
+        compare_image reads <chart>.json and <chart>.npy, which
+        Plotprocess.plot_process writes beside the chart.
+        """
+        names = [Path(o).name for o in task.outputs]
+        for img in task.image_outputs:
+            stem = Path(img).stem
+            names += [stem + ".json", stem + ".npy"]
+        return [f"{WORK_DIR}/{n}" for n in dict.fromkeys(names)]
+
+    @staticmethod
     def resources(files: list[DataFile]) -> tuple[int, int]:
         """(memory_mb, storage_mb) for a task, from its input data.
 
@@ -319,6 +335,7 @@ class AgenticDataBenchAdapter:
             domain_keyword=domain_keyword,
             extra_keywords=", \"charts\"" if images else "",
             output_types=", ".join(f'"{t}"' for t in out_types),
+            artifacts=", ".join(json.dumps(a) for a in self.artifacts(task)),
             memory_mb=str(memory),
             storage_mb=str(storage),
         )

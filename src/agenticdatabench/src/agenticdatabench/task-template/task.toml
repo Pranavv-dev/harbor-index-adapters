@@ -1,4 +1,8 @@
 schema_version = "1.0"
+# The files the verifier grades: each output the task asks for, plus the plot
+# data (.json, .npy) that Plotprocess writes next to each graded chart. After
+# the agent finishes, Harbor copies them into a fresh container for grading.
+artifacts = [{artifacts}]
 
 [task]
 name = "agenticdatabench/agenticdatabench__{task_id}"
@@ -27,6 +31,11 @@ upstream_id = "{task_id}"
 output_types = [{output_types}]
 
 [verifier]
+# Grade in a fresh container built from the same image, which gets only the
+# artifacts above, so nothing the agent changes in its own container (the
+# grader's packages, Python itself) can affect its score. Upstream also grades
+# outside the agent's container.
+environment_mode = "separate"
 # evaluate.py stops the checks after upstream's 120 s evaluation timeout.
 timeout_sec = 600.0
 
