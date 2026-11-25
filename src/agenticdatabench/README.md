@@ -151,6 +151,8 @@ python evaluate.py --output_dir output/<experiment id>
 - Upstream sets no CPU or memory limits. Here each task has 2 CPUs and 4, 8 or 16 GB of memory (by the size of the largest input file), and storage sized to the domain data.
 - Upstream's Claude Code and Codex runners stop the CLI after 3600 s and grade the files it saved; Harbor's 3600 s agent timeout does the same.
 
+**Agent network access.** The agent has network access (it needs the model API), as in upstream, whose runners start the agent container on Docker's default network. Upstream's gold files are public in its GitHub repository (`testbed/gold/<task id>/`), so an agent that found them could copy a task's answer and score 1.0. The instruction doesn't name the benchmark, and the gold files never enter the agent's container. Harbor can limit the agent to the model API (`network_mode = "allowlist"`); this adapter keeps upstream's open network so that both sides of parity run the same way.
+
 **Comparability.** The paper's numbers cover all 344 tasks, private ones included, so they can't be compared directly with scores on these 229 public tasks.
 
 ## Installation / Prerequisites
