@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import json
 import logging
+import random
 import re
 import shutil
 import subprocess
@@ -35,6 +36,14 @@ WORK_DIR = "/workspace"
 # Tasks left out of the generated dataset, with the reason. Source:
 # excluded_tasks.json next to this file; see the README.
 EXCLUDED_TASKS: dict[str, str] = json.loads((Path(__file__).parent / "excluded_tasks.json").read_text())
+
+# Parity subset (`--split parity`): PARITY_SIZE of the kept tasks, spread over
+# the domains in proportion to their size (at least 1 each, largest-remainder
+# rounding), sampled with one random.Random(PARITY_SEED) over the domains in
+# sorted order.
+PARITY_SEED = 0
+PARITY_SIZE = 50
+SPLITS = ("full", "parity")
 
 # The prompt upstream's Claude Code and Codex runners send
 # (testbed/da_agent/agent/claude_code.py and codex.py, _build_task_prompt).
@@ -142,14 +151,18 @@ class AgenticDataBenchAdapter:
         task_ids: list[str] | None = None,
         source_dir: Path | None = None,
         include_excluded: bool = False,
+        split: str = "full",
         **kwargs,
     ):
+        if split not in SPLITS:
+            raise ValueError(f"Unknown split {split!r}; expected one of {SPLITS}")
         self.output_dir = Path(output_dir)
         self.limit = limit
         self.overwrite = overwrite
         self.task_ids = set(task_ids) if task_ids else None
         self.source_dir = Path(source_dir) if source_dir else None
         self.include_excluded = include_excluded
+        self.split = split
         self._tmp: tempfile.TemporaryDirectory | None = None
 
     # ------------------------------------------------------------------ sources
@@ -196,10 +209,43 @@ class AgenticDataBenchAdapter:
             raise RuntimeError(f"Expected 246 tasks in dev.jsonl, found {len(tasks)}")
         return tasks
 
+    @staticmethod
+    def parity_ids(ids: list[str]) -> set[str]:
+        """The parity subset, from the ids of the kept (non-excluded) tasks.
+
+        A task's domain is its id without the trailing number (loan_risk_12 ->
+        loan_risk), which matches the top-level folder of its data.
+        """
+        by_domain: dict[str, list[str]] = {}
+        for i in ids:
+            by_domain.setdefault(re.sub(r"_\d+$", "", i), []).append(i)
+        total = sum(len(v) for v in by_domain.values())
+        quota = {d: PARITY_SIZE * len(v) / total for d, v in by_domain.items()}
+        counts = {d: max(1, int(q)) for d, q in quota.items()}
+        # Settle the rounding: add to the domain furthest below its share, or
+        # take from the one furthest above it, never below 1 (ties: the larger
+        # domain gains first and loses last, then by name).
+        while sum(counts.values()) < PARITY_SIZE:
+            d = min(by_domain, key=lambda d: (counts[d] - quota[d], -len(by_domain[d]), d))
+            counts[d] += 1
+        while sum(counts.values()) > PARITY_SIZE:
+            d = max((d for d in by_domain if counts[d] > 1), key=lambda d: (counts[d] - quota[d], -len(by_domain[d]), d))
+            counts[d] -= 1
+        rng = random.Random(PARITY_SEED)
+        picked: set[str] = set()
+        for d in sorted(by_domain):
+            picked.update(rng.sample(sorted(by_domain[d]), counts[d]))
+        return picked
+
     def _selected(self, tasks: list[AdbTask]) -> list[AdbTask]:
+        parity = None
+        if self.split == "parity":
+            parity = self.parity_ids([t.id for t in tasks if t.id not in EXCLUDED_TASKS])
         out = []
         for t in tasks:
             if t.id in EXCLUDED_TASKS and not self.include_excluded:
+                continue
+            if parity is not None and t.id not in parity:
                 continue
             if self.task_ids is not None and t.id not in self.task_ids:
                 continue

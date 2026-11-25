@@ -101,20 +101,33 @@ Available flags:
 - `--overwrite`: overwrite existing tasks
 - `--source-dir`: a local checkout of the AgenticDataBench GitHub repo at the pinned commit, instead of fetching it
 - `--include-excluded`: also generate the 17 excluded tasks (for checking the exclusions)
+- `--split parity`: only the 50-task parity subset (see Parity)
 
 Generation needs network access to GitHub (the repo at the pinned commit) and to the Hugging Face API (the file list of the pinned revision). The generated tasks take about 480 MB, mostly gold files. The images share about 4.6 GB of base layers (Python, system and data-science packages, the verifier venv) and add the task's domain data: under 0.6 GB for 10 of the 15 domains, 1.0 GB for entertainment, 1.3 GB for transportation, 3.1 GB for ecommerce, and up to 1.8 GB for a single loan_risk task. All 229 tasks together use 19.5 GB of input data.
 
 ## Comparison with Original Benchmark (Parity)
 
-TODO: parity has not been run yet. Planned setup, to be agreed in #adapter-spam before any runs:
-- **Scenario 1.** Upstream already runs Claude Code (`run_claude_code.sh`).
-- **Original side:** upstream's own harness and grader from the [fork's `harbor-adapter` branch](https://github.com/Pranavv-dev/AgenticDataBench/tree/harbor-adapter) (TODO: push). It is upstream at `e81dda8` with the three grader fixes and the three harness fixes described below, running the Claude Code CLI at the same version as Harbor's agent.
-- **Harbor side:** `claude-code` with `claude-haiku-4-5` on this adapter's tasks.
-- **Subset:** about 10% of the 229 tasks, stratified by domain and check type. Mean score ± sample SEM over at least 3 runs per side.
+TODO: parity has not been run yet. The plan below is proposed on the adapter PR for the Harbor team's approval.
+- **Scenario 1.** Upstream already runs Claude Code (`testbed/run.py --agent claude-code`).
+- **Original side:** upstream's own harness and grader from the [fork's `harbor-adapter` branch](https://github.com/Pranavv-dev/AgenticDataBench/tree/harbor-adapter): upstream at `e81dda8` with the three grader fixes and three harness fixes described below. Its Claude Code image is pinned to match this adapter's task image: the same base image digest, the same Python package versions, and Claude Code 2.1.311 installed with the installer Harbor uses. Upstream's image installs all of these unpinned. The runner can also take the API endpoint from `ANTHROPIC_BASE_URL` (upstream hard-codes DashScope's).
+- **Harbor side:** `claude-code@2.1.311` with `claude-haiku-4-5` on the parity subset.
+- **The same on both sides:** upstream's prompt (with the plotting block for chart tasks), the 3600 s agent timeout, Claude Code in print mode with permissions bypassed, and upstream's grader with the same pinned packages.
+- **Subset:** 50 of the 229 tasks (`--split parity`), spread over the domains in proportion to their size with at least one each, drawn with seed 0 before any run. It covers all 14 domains and every check type: 37 of the 177 CSV checks, 7 of 40 chart, 8 of 39 JSON, 4 of 14 model, 3 of 9 text and 1 of 3 SQLite.
+- **Runs and metric:** 3 runs per side. A run's score is the mean task score (0–1) over the 50 tasks; reported as mean ± sample SEM. The sides match if their ranges overlap.
+
+```bash
+# Harbor side
+uv run agenticdatabench --split parity --output-dir ../../datasets/agenticdatabench-parity
+harbor run -p ../../datasets/agenticdatabench-parity -a claude-code -m claude-haiku-4-5 --ak version=2.1.311 -n 4
+
+# Original side (fork, branch harbor-adapter), from testbed/
+python run.py --agent claude-code --model claude-haiku-4-5 --suffix parity --example_names <the 50 task ids>
+python evaluate.py --output_dir output/<experiment id>
+```
 
 | Agent | Model | Metric | Number of Runs | Dataset Size | Original Benchmark Performance | Harbor Adapter Performance |
 |-------|-------|--------|------------------|--------------|--------------------------------|----------------------------|
-| claude-code@TODO | claude-haiku-4-5 | Mean score | TODO | TODO of 229 | TODO | TODO |
+| claude-code@2.1.311 | claude-haiku-4-5 | Mean score | 3 | 50 of 229 | TODO | TODO |
 
 ## Notes & Caveats
 

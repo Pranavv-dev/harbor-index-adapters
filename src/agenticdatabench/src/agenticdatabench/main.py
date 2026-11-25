@@ -27,6 +27,12 @@ def main() -> None:
         action="store_true",
         help="Also generate the tasks in excluded_tasks.json (for checking the exclusions)",
     )
+    parser.add_argument(
+        "--split",
+        choices=["full", "parity"],
+        default="full",
+        help="full: all 229 kept tasks; parity: the 50-task parity subset (by domain, seed 0)",
+    )
     args = parser.parse_args()
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
 
@@ -37,6 +43,7 @@ def main() -> None:
         task_ids=args.task_ids,
         source_dir=args.source_dir,
         include_excluded=args.include_excluded,
+        split=args.split,
     ).run()
 
 
