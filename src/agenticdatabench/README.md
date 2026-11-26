@@ -110,9 +110,10 @@ Generation needs network access to GitHub (the repo at the pinned commit) and to
 
 TODO: parity has not been run yet. The plan below is proposed on the adapter PR for the Harbor team's approval.
 - **Scenario 1.** Upstream already runs Claude Code (`testbed/run.py --agent claude-code`).
-- **Original side:** upstream's own harness and grader from the [fork's `harbor-adapter` branch](https://github.com/Pranavv-dev/AgenticDataBench/tree/harbor-adapter): upstream at `e81dda8` with the three grader fixes and three harness fixes described below. Its Claude Code image is pinned to match this adapter's task image: the same base image digest, the same Python package versions, and Claude Code 2.1.311 installed with the installer Harbor uses. Upstream's image installs all of these unpinned. The runner can also take the API endpoint from `ANTHROPIC_BASE_URL` (upstream hard-codes DashScope's).
+- **Original side:** upstream's own harness and grader from the [fork's `harbor-adapter` branch](https://github.com/Pranavv-dev/AgenticDataBench/tree/harbor-adapter): upstream at `e81dda8` with the three grader fixes and three harness fixes described below. Its runner starts Claude Code exactly as Harbor 0.27.0's `claude-code` agent does: in this adapter's task image (same base image digest, system and Python packages) with Claude Code 2.1.311 installed by Harbor's own install commands, as root, with the prompt piped on stdin, logs and `CLAUDE_CONFIG_DIR` under `/logs/agent`, and the same environment variables. Credentials come from the environment, as on Harbor. Upstream ran `claude -p` as a non-root user, installed everything unpinned and hard-codes DashScope's endpoint. `testbed/harbor_parity/test_identical_launch.py` on the fork checks the launch against Harbor's own `ClaudeCode` class. On one task run against a stand-in model API (no model calls), both sides sent identical requests: every header and body field, including the system prompt and tools, apart from per-run ids.
 - **Harbor side:** `claude-code@2.1.311` with `claude-haiku-4-5` on the parity subset.
-- **The same on both sides:** upstream's prompt (with the plotting block for chart tasks), the 3600 s agent timeout, Claude Code in print mode with permissions bypassed, and upstream's grader with the same pinned packages.
+- **The same on both sides:** upstream's prompt with the plotting block for chart tasks (the fork's prompt equals `instruction.md` byte for byte for all 229 tasks), the Claude Code launch and requests above, the 3600 s agent timeout, and upstream's grader with the same pinned packages.
+- **Kept from upstream's harness on the original side:** no CPU or memory limits, and the work dir is a host folder mounted into the container, so file timestamps and Python's unsorted directory listing order differ from Harbor's. Shell `ls` output is the same.
 - **Subset:** 50 of the 229 tasks (`--split parity`), spread over the domains in proportion to their size with at least one each, drawn with seed 0 before any run. It covers all 14 domains and every check type: 37 of the 177 CSV checks, 7 of 40 chart, 8 of 39 JSON, 4 of 14 model, 3 of 9 text and 1 of 3 SQLite.
 - **Runs and metric:** 3 runs per side. A run's score is the mean task score (0–1) over the 50 tasks; reported as mean ± sample SEM. The sides match if their ranges overlap.
 
@@ -121,7 +122,9 @@ TODO: parity has not been run yet. The plan below is proposed on the adapter PR 
 uv run agenticdatabench --split parity --output-dir ../../datasets/agenticdatabench-parity
 harbor run -p ../../datasets/agenticdatabench-parity -a claude-code -m claude-haiku-4-5 --ak version=2.1.311 -n 4
 
-# Original side (fork, branch harbor-adapter), from testbed/
+# Original side (fork, branch harbor-adapter), from testbed/, with the same
+# ANTHROPIC_API_KEY / ANTHROPIC_BASE_URL in the environment as the Harbor side
+docker build -t claude-code da_agent/images/claude-code
 python run.py --agent claude-code --model claude-haiku-4-5 --suffix parity --example_names <the 50 task ids>
 python evaluate.py --output_dir output/<experiment id>
 ```
